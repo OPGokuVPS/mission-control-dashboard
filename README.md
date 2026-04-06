@@ -12,6 +12,14 @@ Autonomous AI Software Factory — Virtual Command Center for managing tasks, ag
 - **Alerts & Risks**: Proactive monitoring of blocked tasks, overdue items, and agent failures
 - **Command Interface**: Natural language commands to control the system ("create task:", "show workflows", "focus today", etc.)
 
+## Reliability & Monitoring
+
+- **Error Logging**: All application errors are automatically logged to the `errors` table with component, severity, stack trace, and timestamp
+- **Retry Logic**: All Supabase operations use exponential backoff (3 retries) to handle transient failures
+- **Sync Health**: Bottom-right status bar shows network status, last poll times, and error counts per component
+- **Global Error Boundary**: Catches unhandled React errors and logs them to the database
+- **Health Endpoint**: `/api/health` returns DB connectivity status and uptime for external monitoring
+
 ## Tech Stack
 
 - **Frontend**: Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS
@@ -33,19 +41,35 @@ npm install
 
 Create a `.env.local` file:
 
-```
+```env
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
 ### 3. Set up Supabase database
 
-Run the included SQL schema (or use the Supabase dashboard):
+Run the included SQL migrations in order (found in `supabase/migrations/`):
 
-```sql
--- Tables: tasks, memory_vault, agent_activity, workflows, insights, alerts
--- RLS policies: all enabled with open access (adjust for production)
+```bash
+# Using Supabase CLI
+supabase db push
+
+# Or manually via Supabase dashboard SQL editor:
+# 001_initial_schema.sql
+# 002_errors_table.sql
 ```
+
+Alternatively, use the Table Editor to create these tables:
+
+- `tasks` (Task Control Center)
+- `memory_vault` (Memory Vault)
+- `agent_activity` (Agent Activity Feed)
+- `workflows` (Workflow Tracker)
+- `insights` (Performance Insights)
+- `alerts` (Alerts & Risks)
+- `errors` (Error logging — optional but recommended)
+
+All tables have Row Level Security (RLS) enabled.
 
 ### 4. Run locally
 
