@@ -1,26 +1,30 @@
-import type { Metadata } from "next";
-import "./globals.css";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { SyncStatusBar } from "@/components/SyncStatusBar";
+import type { Metadata } from 'next';
+import { Suspense } from 'react';
+import { AuthProvider } from '@/lib/auth-provider';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { PanelSkeleton } from '@/components/SkeletonLoader';
+import { getQueryClient } from '@/lib/query-client';
+import './globals.css';
 
 export const metadata: Metadata = {
-  title: "Mission Control Dashboard",
-  description: "Autonomous AI Software Factory - Virtual Mission Control",
+    title: 'Mission Control — AI Software Factory',
+    description: 'Autonomous AI Software Factory dashboard',
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  return (
-    <html lang="en">
-      <body className="antialiased min-h-screen bg-gray-50">
-        <ErrorBoundary>
-          {children}
-        </ErrorBoundary>
-        <SyncStatusBar />
-      </body>
-    </html>
-  );
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+    const queryClient = getQueryClient();
+
+    return (
+        <html lang="en">
+            <body className="antialiased bg-gray-50 text-slate-900">
+                <QueryClientProvider client={queryClient}>
+                    <AuthProvider>
+                        <Suspense fallback={<PanelSkeleton />}>
+                            {children}
+                        </Suspense>
+                    </AuthProvider>
+                </QueryClientProvider>
+            </body>
+        </html>
+    );
 }
