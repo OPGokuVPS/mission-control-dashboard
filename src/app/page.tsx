@@ -191,7 +191,7 @@ function OverviewTab({ refreshKey }: { refreshKey: number }) {
                     { label: 'Active Alerts', value: summary?.alerts, icon: '🔔', color: 'red' },
                     { label: 'Experiments', value: summary?.active_experiments, icon: '🔬', color: 'purple' },
                     { label: 'Busy Agents', value: summary?.agents_busy, icon: '🤖', color: 'amber' },
-                    { label: 'Today\'s Cost', value: summary?.cost_today ? `$${summary.cost_today}` : '$0', icon: '💰', color: 'cyan' },
+                    { label: "Today's Cost", value: summary?.cost_today ? `$${summary.cost_today}` : '$0', icon: '💰', color: 'cyan' },
                 ].map((metric, idx) => (
                     <div
                         key={idx}
@@ -224,7 +224,7 @@ function OverviewTab({ refreshKey }: { refreshKey: number }) {
                             <>
                                 <span className="text-slate-300">·</span>
                                 <span className="text-slate-500 dark:text-slate-400">
-                                    {context.primary_kpis?.length ?? 0} KPI{(context.primary_kpis && context.primary_kpis.length > 1 ? 's' : '')} tracked
+                                    {(context.primary_kpis?.length ?? 0)} KPI{(context.primary_kpis?.length ?? 0) > 1 ? 's' : ''} tracked
                                 </span>
                             </>
                         )}
