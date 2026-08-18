@@ -11,9 +11,9 @@ export function useOutcomes(metricCategory?: MetricCategory | null) {
         queryKey: metricCategory ? QUERY_KEYS.outcomes.byMetric(metricCategory) : QUERY_KEYS.outcomes.all,
         queryFn: async () => {
             let q = supabase.from('outcomes').select('*');
-            Object.entries(filters).forEach(([key, val]) => {
-                q = (q as any).eq(key, val);
-            });
+            for (const [key, val] of Object.entries(filters)) {
+                q = q.eq(key, val as string);
+            }
             const { data, error } = await q.order('measured_at', { ascending: false });
             if (error) throw error;
             return data as Outcome[];

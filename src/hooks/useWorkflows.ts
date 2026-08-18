@@ -11,9 +11,9 @@ export function useWorkflows(status?: string | null) {
         queryKey: QUERY_KEYS.workflows.byStatus(status),
         queryFn: async () => {
             let q = supabase.from('workflows').select('*');
-            Object.entries(filters).forEach(([key, val]) => {
-                q = (q as any).eq(key, val);
-            });
+            for (const [key, val] of Object.entries(filters)) {
+                q = q.eq(key, val as string);
+            }
             const { data, error } = await q.order('created_at', { ascending: false });
             if (error) throw error;
             return data as Workflow[];

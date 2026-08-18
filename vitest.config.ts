@@ -15,5 +15,8 @@ export default defineConfig({
             reporter: ['text', 'json', 'html'],
             exclude: ['node_modules/', 'src/__generated__/'],
         },
+        alias: [
+            { find: '@/lib/supabase', replacement: '/src/__mocks__/supabase-mock.ts' },
+        ],
     },
 });

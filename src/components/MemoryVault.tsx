@@ -66,7 +66,7 @@ export function MemoryVault() {
             {/* Summary */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {(['all', ...Object.keys(TYPE_LABELS)] as Array<string>).map(type => (
-                    <button key={type} onClick={() => setFilterType(type as any)} className={`bg-white dark:bg-slate-800 border rounded-xl p-3 text-center cursor-pointer transition-all ${filterType === type ? 'ring-2 ring-indigo-500' : 'hover:shadow-md'}`}>
+                    <button key={type} onClick={() => setFilterType(type as MemoryType | 'all')} className={`bg-white dark:bg-slate-800 border rounded-xl p-3 text-center cursor-pointer transition-all ${filterType === type ? 'ring-2 ring-indigo-500' : 'hover:shadow-md'}`}>
                         {type !== 'all' && <span className="text-lg">{TYPE_ICONS[type as MemoryType]}</span>}
                         {type === 'all' && <span className="text-lg">🧠</span>}
                         <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">

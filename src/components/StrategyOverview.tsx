@@ -47,7 +47,7 @@ export function StrategyOverview({ onUpdate }: { onUpdate?: () => void }) {
                 </div>
                 <form onSubmit={async (e) => {
                     e.preventDefault();
-                    await updateCtx.mutateAsync(form as any);
+                    await updateCtx.mutateAsync(form as Record<string, unknown>);
                     setEditing(false);
                     onUpdate?.();
                 }} className="space-y-4">

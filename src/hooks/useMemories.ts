@@ -11,9 +11,9 @@ export function useMemories(category?: MemoryType | null) {
         queryKey: QUERY_KEYS.memories.byCategory(category),
         queryFn: async () => {
             let q = supabase.from('memory_vault').select('*');
-            Object.entries(filters).forEach(([key, val]) => {
-                q = (q as any).eq(key, val);
-            });
+            for (const [key, val] of Object.entries(filters)) {
+                q = q.eq(key, val as string);
+            }
             const { data, error } = await q.order('created_at', { ascending: false });
             if (error) throw error;
             return data as MemoryEntry[];

@@ -40,7 +40,7 @@ export function CommandInterface({ onUpdate }: { onUpdate: () => void }) {
                     if (parsed.params?.id && parsed.params?.status) {
                         const id = Number(parsed.params.id);
                         const status = String(parsed.params.status);
-                        await updateTask.mutateAsync({ id, status: status as any });
+                        await updateTask.mutateAsync({ id, status: status as "backlog" | "active" | "blocked" | "in_review" | "done" | "deprecated" });
                         setOutput(prev => [...prev, `✅ Task #${id} → ${status}`]);
                         onUpdate();
                     }

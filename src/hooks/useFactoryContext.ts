@@ -14,7 +14,7 @@ export function useFactoryContext() {
                 .maybeSingle();
             if (error) throw error;
             if (!data) return null;
-            return (data.value as unknown) as FactoryContext;
+            return (data.value ?? {}) as FactoryContext;
         },
         staleTime: 60_000,
     });
@@ -26,7 +26,7 @@ export function useUpdateFactoryContext() {
         mutationFn: async (payload: Partial<FactoryContext>) => {
             const { data, error } = await supabase
                 .from('settings')
-                .upsert({ key: 'factory_context', value: payload as any }, { onConflict: 'key' })
+                .upsert({ key: 'factory_context', value: payload }, { onConflict: 'key' })
                 .select()
                 .single();
             if (error) throw error;

@@ -82,7 +82,7 @@ export function ExperimentsPanel() {
                     { value: 'concluded_tie', label: 'Tie' },
                     { value: 'aborted', label: 'Aborted' },
                 ].map(f => (
-                    <button key={f.value} onClick={() => setFilterStatus(f.value as any)}
+                    <button key={f.value} onClick={() => setFilterStatus(f.value as ExperimentStatus | 'all')}
                         className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
                             filterStatus === f.value ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border hover:border-slate-400'
                         }`}>
