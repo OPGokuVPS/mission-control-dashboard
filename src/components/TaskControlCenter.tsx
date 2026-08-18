@@ -225,3 +225,36 @@ function TaskCard({ task, onStatusChange, onDelete }: {
         </div>
     );
 }
+
+
+// Status transition map
+const STATUS_FLOW: Record<string, string[]> = {
+    backlog: ['active', 'blocked', 'deprecated'],
+    active: ['in_review'],
+    blocked: ['active', 'backlog'],
+    in_review: ['done', 'active'],
+    done: [],
+    deprecated: ['backlog'],
+};
+
+const PRIORITY_COLORS: Record<string, string> = {
+    critical: 'bg-red-100 text-red-700',
+    high: 'bg-orange-100 text-orange-700',
+    medium: 'bg-blue-100 text-blue-700',
+    low: 'bg-slate-100 text-slate-600',
+};
+
+const AGENT_LABELS: Record<string, string> = {
+    strategy: '🎯 Strategy',
+    system_architect: '🏗️ System Arch',
+    backend_engineer: '⚙️ Backend',
+    frontend_engineer: '🎨 Frontend',
+    integration_engineer: '🔌 Integration',
+    qa: '✅ QA',
+    devops: '🚀 DevOps',
+    security: '🔒 Security',
+    data: '📊 Data',
+    growth: '📈 Growth',
+    support_and_monitoring: '🚟 Support',
+};
+
