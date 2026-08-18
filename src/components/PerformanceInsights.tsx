@@ -69,13 +69,23 @@ export function PerformanceInsights() {
             )}
 
             {/* Category filters */}
-            <div className="flex gap-2 overflow-x-auto pb-2">
-                {[{ value: 'all', label: 'All' }, ...Object.keys(CATEGORY_ICONS).map(c => ({ value: c, label: `${CATEGORY_ICONS[c as MetricCategory]} ${c}` }))] as Array<{value: string, label: string}>.map(f => (
-                    <button key={f.value} onClick={() => setFilterCategory(f.value as any)} className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${filterCategory === f.value ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border hover:border-slate-400'}`}>
-                        {f.label} ({f.value === 'all' ? insights.length : insights.filter(i => i.category === f.value).length})
-                    </button>
-                ))}
-            </div>
+            {(() => {
+                const categoryOptions = [
+                    { value: 'all' as const, label: 'All' },
+                    ...Object.keys(CATEGORY_ICONS).map(c => ({
+                        value: c as MetricCategory,
+                        label: `${CATEGORY_ICONS[c as MetricCategory]} ${c}`,
+                    })),
+                ];
+                return (
+                <div className="flex gap-2 overflow-x-auto pb-2">
+                    {categoryOptions.map(f => (
+                        <button key={f.value} onClick={() => setFilterCategory(f.value)} className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${filterCategory === f.value ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border hover:border-slate-400'}`}>
+                            {f.label} ({f.value === 'all' ? insights.length : insights.filter(i => i.category === f.value).length})
+                        </button>
+                    ))}
+                </div>);
+            })()}
 
             {/* Empty state */}
             {filtered.length === 0 && <div className="text-center py-12 text-slate-400">No insights yet. Run analysis or add one manually.</div>}
