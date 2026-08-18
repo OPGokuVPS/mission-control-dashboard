@@ -51,8 +51,10 @@ export function CommandInterface({ onUpdate }: { onUpdate: () => void }) {
                     if (!tasks || tasks.length === 0) {
                         setOutput(prev => [...prev, '📋 No tasks found']);
                     } else {
-                        const agentName = AGENT_LABELS[task.assigned_agent ?? ''] ?? task.assigned_agent ?? 'Unassigned';
-                        setOutput(prev => [...prev, `${agentName}: ${task.title} (#${task.id})`]);
+                        const taskList = tasks.slice(0, 20).map(t =>
+                            `  #${t.id} [${t.status}] ${AGENT_LABELS[t.assigned_agent ?? ""] ?? t.assigned_agent ?? "Unassigned"}: ${t.title}`
+                        ).join('\n');
+                        setOutput(prev => [...prev, `📋 Tasks (${tasks.length}):`, taskList]);
                     }
                     break;
                 }
