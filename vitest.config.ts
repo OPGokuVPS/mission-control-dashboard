@@ -5,7 +5,7 @@ export default defineConfig({
     resolve: {
         alias: [
             { find: '@', replacement: path.resolve(__dirname, 'src') },
-            { find: '@/lib/supabase', replacement: '/src/__mocks__/supabase-mock.ts' },
+            { find: '@/lib/supabase', replacement: path.resolve(__dirname, 'src/__mocks__/supabase-mock.ts') },
         ],
     },
     test: {
