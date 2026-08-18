@@ -5,13 +5,12 @@ import { useAlerts, useResolveAlert } from '@/hooks/useAlerts';
 import type { Alert, RiskSeverity, AlertSource } from '@/types';
 
 const SEVERITY_COLORS: Record<string, string> = {
-    critical: 'border-red-500',
-    high: 'border-red-300',
-    medium: 'border-yellow-300',
-    low: 'border-blue-300',
+    fatal: 'border-red-500',
+    error: 'border-red-300',
+    warning: 'border-yellow-300',
 };
 const SEVERITY_ICONS: Record<string, string> = {
-    high: '🔴', medium: '🟡', low: '🔵', critical: '🔥',
+    fatal: '🔴', error: '🟠', warning: '🟡',
 };
 const STATUS_BADGES: Record<string, string> = {
     active: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300',
@@ -65,7 +64,7 @@ export function AlertsRisksPanel() {
     });
 
     const totalActive = alerts.filter((a: Alert) => a.status === 'active').length;
-    const highCritical = alerts.filter((a: Alert) => a.status === 'active' && (a.severity === 'high' || a.severity === 'critical')).length;
+    const highCritical = alerts.filter((a: Alert) => a.status === 'active' && (a.severity === 'error' || a.severity === 'fatal')).length;
 
     return (
         <div className="space-y-4">
@@ -94,7 +93,7 @@ export function AlertsRisksPanel() {
                     </button>
                 ))}
                 <span className="text-sm font-medium text-slate-600 dark:text-slate-400 self-center ml-4 mr-1">Severity:</span>
-                {['all', 'high', 'medium', 'low', 'critical'].map(sev => (
+                {['all', 'fatal', 'error', 'warning'].map(sev => (
                     <button
                         key={sev}
                         onClick={() => setFilterSeverity(sev)}
