@@ -1,126 +1,64 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { useState } from 'react';
+import { useWorkflows } from '@/hooks/useWorkflows';
+import { useUpdateWorkflow } from '@/hooks/useWorkflows';
+import { CardSkeleton, SkeletonLoader } from '@/components/SkeletonLoader';
 
-interface Workflow {
-  id: number;
-  name: string;
-  description: string;
-  steps: any[];
-  current_step: number;
-  status: string;
-  dependencies: any[];
-  completion_pct: number;
-  created_at: string;
-}
+const STATUS_ICONS: Record<string, string> = { idle: '⏸️', running: '▶️', paused: '⏸️', completed: '✅', failed: '❌' };
 
 export function WorkflowTracker() {
-  const [workflows, setWorkflows] = useState<Workflow[]>([]);
-  const [showNew, setShowNew] = useState(false);
-  const [newWorkflow, setNewWorkflow] = useState({ name: "", description: "", steps: [] as string[] });
+    const { data: workflows = [], isLoading } = useWorkflows();
+    const updateWorkflow = useUpdateWorkflow();
 
-  useEffect(() => {
-    loadWorkflows();
-  }, []);
+    if (isLoading) return <SkeletonLoader lines={3} className="bg-white rounded-xl p-6" />;
 
-  async function loadWorkflows() {
-    const { data } = await supabase.from("workflows").select("*").order("created_at", { ascending: false });
-    setWorkflows(data || []);
-  }
-
-  async function createWorkflow() {
-    if (!newWorkflow.name.trim()) return;
-    await supabase.from("workflows").insert([{
-      name: newWorkflow.name,
-      description: newWorkflow.description,
-      steps: newWorkflow.steps.map((step, i) => ({ name: step, order: i + 1 })),
-      current_step: 0,
-      completion_pct: 0,
-      status: "active"
-    }]);
-    setNewWorkflow({ name: "", description: "", steps: [] });
-    setShowNew(false);
-    loadWorkflows();
-  }
-
-  async function updateProgress(id: number, increment: boolean) {
-    const wf = workflows.find(w => w.id === id);
-    if (!wf) return;
-    const newStep = increment ? Math.min(wf.current_step + 1, wf.steps.length) : Math.max(wf.current_step - 1, 0);
-    const pct = Math.round((newStep / wf.steps.length) * 100);
-    await supabase.from("workflows").update({
-      current_step: newStep,
-      completion_pct: pct,
-      status: newStep === wf.steps.length ? "completed" : "active"
-    }).eq("id", id);
-    loadWorkflows();
-  }
-
-  const stepLabels = ["Define", "Build", "Test", "Deploy", "Monitor"];
-
-  return (
-    <div>
-      <div className="mb-4 flex justify-between items-center">
-        <h3 className="font-semibold">Active Workflows</h3>
-        <button className="text-sm bg-green-600 text-white px-3 py-1 rounded" onClick={() => setShowNew(!showNew)}>
-          {showNew ? "Cancel" : "+ New"}
-        </button>
-      </div>
-
-      {showNew && (
-        <div className="mb-4 p-4 border rounded">
-          <div className="mb-2">
-            <input
-              className="border p-2 w-full mb-2"
-              placeholder="Workflow name"
-              value={newWorkflow.name}
-              onChange={(e) => setNewWorkflow({ ...newWorkflow, name: e.target.value })}
-            />
-            <textarea
-              className="border p-2 w-full mb-2"
-              placeholder="Description"
-              value={newWorkflow.description}
-              onChange={(e) => setNewWorkflow({ ...newWorkflow, description: e.target.value })}
-            />
-          </div>
-          <button className="bg-blue-600 text-white px-4 py-2 rounded" onClick={createWorkflow}>
-            Create Workflow
-          </button>
+    return (
+        <div className="space-y-4">
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">⚙️ Workflow Tracker</h2>
+            {workflows.length === 0 ? (
+                <div className="text-center py-12 text-slate-400">No workflows yet</div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {workflows.map(wf => (
+                        <WorkflowCard key={wf.id} workflow={wf} onUpdate={updateWorkflow} />
+                    ))}
+                </div>
+            )}
         </div>
-      )}
+    );
+}
 
-      <div className="space-y-4">
-        {workflows.map((wf) => (
-          <div key={wf.id} className="border rounded p-4">
-            <div className="flex justify-between items-start mb-2">
-              <div>
-                <h4 className="font-semibold">{wf.name}</h4>
-                <p className="text-sm text-gray-600">{wf.description}</p>
-              </div>
-              <span className="text-sm font-medium">{wf.completion_pct}%</span>
+function WorkflowCard({ workflow, onUpdate }: { workflow: any; onUpdate: any }) {
+    return (
+        <div className="bg-white dark:bg-slate-800 border rounded-xl p-4 hover:shadow-md transition-shadow">
+            <div className="flex items-start justify-between mb-3">
+                <h3 className="font-semibold text-slate-900 dark:text-white">{workflow.name}</h3>
+                <span className="text-xs px-2 py-1 rounded-full capitalize bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400">{STATUS_ICONS[workflow.status]} {workflow.status}</span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
-              <div
-                className="bg-blue-600 h-2 rounded-full transition-all"
-                style={{ width: `${wf.completion_pct}%` }}
-              ></div>
+            <div className="mb-3">
+                <div className="flex justify-between text-xs text-slate-500 mb-1">
+                    <span>Progress</span>
+                    <span>{workflow.completion_pct}%</span>
+                </div>
+                <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2">
+                    <div className={`h-full rounded-full transition-all ${workflow.completion_pct >= 100 ? 'bg-green-500' : 'bg-blue-500'}`} style={{ width: `${workflow.completion_pct}%` }} />
+                </div>
             </div>
-            <div className="flex items-center gap-2">
-              {wf.steps.map((step: any, idx: number) => (
-                <span key={idx} className={`text-xs ${idx < wf.current_step ? "text-green-600" : "text-gray-400"}`}>
-                  {step.name}
-                  {idx < wf.steps.length - 1 && " → "}
-                </span>
-              ))}
-            </div>
-            <div className="flex gap-2 mt-3">
-              <button className="text-sm bg-gray-200 px-2 py-1 rounded" onClick={() => updateProgress(wf.id, false)}>← Back</button>
-              <button className="text-sm bg-blue-600 text-white px-2 py-1 rounded" onClick={() => updateProgress(wf.id, true)}>Next →</button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+            {workflow.steps && workflow.steps.length > 0 && (
+                <div className="space-y-1">
+                    {workflow.steps.slice(0, 5).map((step: string, i: number) => (
+                        <div key={i} className={`text-xs p-1 rounded flex items-center gap-2 ${i < workflow.current_step ? 'text-green-600 dark:text-green-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                            <span>{i < workflow.current_step ? '✅' : i === workflow.current_step ? '▶️' : '⬜'}</span>
+                            <span className="truncate">{step}</span>
+                        </div>
+                    ))}
+                    {workflow.steps.length > 5 && <div className="text-xs text-slate-400">+{workflow.steps.length - 5} more...</div>}
+                </div>
+            )}
+            {(workflow.dependencies?.length ?? 0) > 0 && (
+                <div className="mt-2 text-xs text-slate-400">Depends on: {workflow.dependencies.join(', ')}</div>
+            )}
+        </div>
+    );
 }

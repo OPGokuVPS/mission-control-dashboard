@@ -1,75 +1,70 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { useAgentActivity } from '@/hooks/useAgentActivity';
+import { CardSkeleton, SkeletonLoader } from '@/components/SkeletonLoader';
 
-interface Activity {
-  id: number;
-  agent_name: string;
-  objective: string;
-  actions: any[];
-  tools_used: any[];
-  result: string;
-  status: string;
-  created_at: string;
-}
+const AGENT_LABELS: Record<string, string> = {
+    strategy: '🎯 Strategy',
+    system_architect: '🏗️ Architect',
+    backend_engineer: '⚙️ Backend',
+    frontend_engineer: '🎨 Frontend',
+    integration_engineer: '🔌 Integration',
+    qa: '✅ QA',
+    devops: '🚀 DevOps',
+    security: '🔒 Security',
+    data: '📊 Data',
+    growth: '📈 Growth',
+    support_and_monitoring: '🛟 Support',
+};
+
+const QUALITY_ICONS: Record<string, string> = { high: '⭐', medium: '👍', low: '📉' };
 
 export function AgentActivityFeed() {
-  const [activities, setActivities] = useState<Activity[]>([]);
+    const { data: activities = [], isLoading } = useAgentActivity(50);
 
-  useEffect(() => {
-    loadActivities();
-    // Poll for new activities every 5 seconds
-    const interval = setInterval(loadActivities, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    if (isLoading) return <SkeletonLoader lines={5} className="bg-white rounded-xl p-6" />;
 
-  async function loadActivities() {
-    const { data } = await supabase.from("agent_activity").select("*").order("created_at", { ascending: false }).limit(10);
-    setActivities(data || []);
-  }
-
-  function getStatusColor(status: string) {
-    switch (status) {
-      case "success":
-        return "bg-green-100 text-green-800";
-      case "error":
-      case "failed":
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-yellow-100 text-yellow-800";
+    if (activities.length === 0) {
+        return <div className="text-center py-12 text-slate-400">No agent activity recorded yet</div>;
     }
-  }
 
-  return (
-    <div className="max-h-[500px] overflow-y-auto">
-      {activities.length === 0 ? (
-        <div className="text-gray-500 text-center py-8">No agent activity yet.</div>
-      ) : (
-        <div className="space-y-3">
-          {activities.map((activity) => (
-            <div key={activity.id} className="bg-gray-50 p-3 rounded border text-sm">
-              <div className="flex justify-between items-start mb-1">
-                <span className="font-semibold text-blue-600">{activity.agent_name}</span>
-                <span className={`px-2 py-0.5 rounded text-xs ${getStatusColor(activity.status)}`}>
-                  {activity.status}
-                </span>
-              </div>
-              <div className="text-gray-700 mb-1">{activity.objective}</div>
-              <div className="text-xs text-gray-500">
-                Tools: {activity.tools_used?.join(", ") || "none"}
-              </div>
-              <div className="text-xs text-gray-400 mt-1">{new Date(activity.created_at).toLocaleTimeString()}</div>
-              {activity.result && (
-                <details className="mt-2">
-                  <summary className="cursor-pointer text-gray-600">Result</summary>
-                  <pre className="text-xs bg-white p-2 rounded mt-1 overflow-x-auto">{JSON.stringify(activity.result, null, 2)}</pre>
-                </details>
-              )}
+    return (
+        <div className="space-y-4">
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">📡 Agent Activity Feed</h2>
+            <div className="space-y-2">
+                {activities.slice(0, 20).map(activity => (
+                    <ActivityItem key={activity.id} activity={activity} />
+                ))}
             </div>
-          ))}
         </div>
-      )}
-    </div>
-  );
+    );
+}
+
+function ActivityItem({ activity }: { activity: any }) {
+    return (
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 hover:shadow-md transition-shadow">
+            <div className="flex items-start justify-between gap-3 mb-2">
+                <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-lg shrink-0">{AGENT_LABELS[activity.agent_name]?.split(' ')[0] || '🤖'}</span>
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{AGENT_LABELS[activity.agent_name] || activity.agent_name}</span>
+                    <span className="text-xs px-2 py-0.5 bg-slate-100 dark:bg-slate-700 rounded-full text-slate-500 dark:text-slate-400">{activity.status}</span>
+                </div>
+                <span className="text-xs text-slate-400 shrink-0">{new Date(activity.created_at).toLocaleTimeString()}</span>
+            </div>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-2 line-clamp-2">{activity.objective}</p>
+            {activity.tools_used && activity.tools_used.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-2">
+                    {activity.tools_used.map((tool: string, i: number) => (
+                        <span key={i} className="text-[10px] px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-full">{tool}</span>
+                    ))}
+                </div>
+            )}
+            {activity.outcome_quality && (
+                <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+                    <span>{QUALITY_ICONS[activity.outcome_quality]}</span>
+                    <span>{activity.outcome_quality} quality</span>
+                </div>
+            )}
+        </div>
+    );
 }
