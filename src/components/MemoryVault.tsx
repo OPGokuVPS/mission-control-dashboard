@@ -1,104 +1,98 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { useState } from 'react';
+import { useMemories, useAddMemory, useDeleteMemory } from '@/hooks/useMemories';
+import type { MemoryType } from '@/types';
+import { CardSkeleton, SkeletonLoader } from '@/components/SkeletonLoader';
 
-interface Memory {
-  id: number;
-  title: string;
-  content: string;
-  category: string;
-  linked_task_id: number | null;
-  linked_agent: string;
-  created_at: string;
-}
+const TYPE_ICONS: Record<MemoryType, string> = {
+    successful_approach: '✅',
+    failure_pattern: '❌',
+    architecture_decision: '🏗️',
+    kpi_learning: '📊',
+};
+
+const TYPE_LABELS: Record<MemoryType, string> = {
+    successful_approach: 'Successful Approach',
+    failure_pattern: 'Failure Pattern',
+    architecture_decision: 'Architecture Decision',
+    kpi_learning: 'KPI Learning',
+};
 
 export function MemoryVault() {
-  const [memories, setMemories] = useState<Memory[]>([]);
-  const [newMemory, setNewMemory] = useState({ title: "", content: "", category: "general" });
-  const [filter, setFilter] = useState<string>("all");
+    const { data: memories = [], isLoading } = useMemories();
+    const addMemory = useAddMemory();
+    const deleteMemory = useDeleteMemory();
+    const [showForm, setShowForm] = useState(false);
+    const [title, setTitle] = useState('');
+    const [content, setContent] = useState('');
+    const [category, setCategory] = useState<MemoryType>('successful_approach');
+    const [filterType, setFilterType] = useState<MemoryType | 'all'>('all');
 
-  useEffect(() => {
-    loadMemories();
-  }, []);
+    async function handleCreate(e: React.FormEvent) {
+        e.preventDefault();
+        if (!title.trim() || !content.trim()) return;
+        await addMemory.mutateAsync({ title: title.trim(), content: content.trim(), category });
+        setTitle('');
+        setContent('');
+        setShowForm(false);
+    }
 
-  async function loadMemories() {
-    const { data } = await supabase.from("memory_vault").select("*").order("created_at", { ascending: false });
-    setMemories(data || []);
-  }
+    if (isLoading) return <SkeletonLoader lines={4} className="bg-white rounded-xl p-6" />;
 
-  async function createMemory() {
-    if (!newMemory.title.trim() || !newMemory.content.trim()) return;
-    await supabase.from("memory_vault").insert([newMemory]);
-    setNewMemory({ title: "", content: "", category: "general" });
-    loadMemories();
-  }
+    const filtered = filterType === 'all' ? memories : memories.filter((m: any) => m.category === filterType);
 
-  async function deleteMemory(id: number) {
-    await supabase.from("memory_vault").delete().eq("id", id);
-    loadMemories();
-  }
-
-  const categories = ["all", ...new Set(memories.map((m) => m.category))];
-  const filtered = filter === "all" ? memories : memories.filter((m) => m.category === filter);
-
-  return (
-    <div>
-      <div className="mb-4 flex gap-2 items-center">
-        <select className="border p-2" value={filter} onChange={(e) => setFilter(e.target.value)}>
-          {categories.map((cat) => (
-            <option key={cat} value={cat}>{cat === "all" ? "All Categories" : cat}</option>
-          ))}
-        </select>
-      </div>
-
-      <div className="mb-4 p-4 border rounded">
-        <h3 className="font-semibold mb-2">Save New Memory</h3>
-        <div className="flex gap-2 mb-2">
-          <input
-            className="border p-2 flex-1"
-            placeholder="Title"
-            value={newMemory.title}
-            onChange={(e) => setNewMemory({ ...newMemory, title: e.target.value })}
-          />
-          <select
-            className="border p-2"
-            value={newMemory.category}
-            onChange={(e) => setNewMemory({ ...newMemory, category: e.target.value })}
-          >
-            <option value="general">General</option>
-            <option value="decision">Decision</option>
-            <option value="lesson">Lesson Learned</option>
-            <option value="context">Context</option>
-          </select>
-        </div>
-        <textarea
-          className="border p-2 w-full mb-2"
-          placeholder="Content"
-          value={newMemory.content}
-          onChange={(e) => setNewMemory({ ...newMemory, content: e.target.value })}
-        />
-        <button className="bg-blue-600 text-white px-4 py-2 rounded" onClick={createMemory}>
-          Save Memory
-        </button>
-      </div>
-
-      <div className="space-y-3">
-        {filtered.map((memory) => (
-          <div key={memory.id} className="bg-gray-50 p-4 rounded border">
-            <div className="flex justify-between items-start">
-              <div>
-                <h4 className="font-semibold">{memory.title}</h4>
-                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">{memory.category}</span>
-                {memory.linked_agent && <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded ml-2">Agent: {memory.linked_agent}</span>}
-              </div>
-              <button className="text-red-500 hover:text-red-700" onClick={() => deleteMemory(memory.id)}>Delete</button>
+    return (
+        <div className="space-y-4">
+            <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">🧠 Memory Vault</h2>
+                <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors">+ Add Memory</button>
             </div>
-            <p className="mt-2 text-gray-700">{memory.content}</p>
-            <div className="text-xs text-gray-400 mt-2">{new Date(memory.created_at).toLocaleString()}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+
+            {showForm && (
+                <form onSubmit={handleCreate} className="bg-white dark:bg-slate-800 border rounded-xl p-4 space-y-3">
+                    <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Memory title *" className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" autoFocus required />
+                    <textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="Content..." rows={4} className="w-full px-3 py-2 border rounded-lg resize-y focus:ring-2 focus:ring-indigo-500 outline-none" required />
+                    <select value={category} onChange={(e) => setCategory(e.target.value as MemoryType)} className="w-full px-3 py-2 border rounded-lg">
+                        {Object.entries(TYPE_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+                    </select>
+                    <div className="flex gap-2">
+                        <button type="submit" disabled={!title.trim() || !content.trim()} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg font-medium">Save</button>
+                        <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg">Cancel</button>
+                    </div>
+                </form>
+            )}
+
+            {/* Summary */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {(['all', ...Object.keys(TYPE_LABELS)] as Array<string>).map(type => (
+                    <button key={type} onClick={() => setFilterType(type as any)} className={`bg-white dark:bg-slate-800 border rounded-xl p-3 text-center cursor-pointer transition-all ${filterType === type ? 'ring-2 ring-indigo-500' : 'hover:shadow-md'}`}>
+                        {type !== 'all' && <span className="text-lg">{TYPE_ICONS[type as MemoryType]}</span>}
+                        {type === 'all' && <span className="text-lg">🧠</span>}
+                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                            {type === 'all' ? memories.length : memories.filter((m: any) => m.category === type).length}
+                        </div>
+                    </button>
+                ))}
+            </div>
+
+            {/* Memories list */}
+            <div className="space-y-3">
+                {filtered.map((mem: any) => (
+                    <div key={mem.id} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
+                        <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                                <span className="text-lg">{TYPE_ICONS[mem.category as MemoryType]}</span>
+                                <h3 className="font-medium text-slate-900 dark:text-white">{mem.title}</h3>
+                            </div>
+                            <button onClick={() => deleteMemory.mutate(mem.id)} className="text-slate-400 hover:text-red-500 text-sm">✕</button>
+                        </div>
+                        <p className="text-sm text-slate-600 dark:text-slate-400 whitespace-pre-line">{mem.content}</p>
+                        <div className="mt-2 text-xs text-slate-400">Added: {new Date(mem.created_at).toLocaleDateString()}</div>
+                    </div>
+                ))}
+            </div>
+            {filtered.length === 0 && <div className="text-center py-8 text-slate-400">No memories stored yet.</div>}
+        </div>
+    );
 }
