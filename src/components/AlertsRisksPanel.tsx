@@ -4,12 +4,12 @@ import { useState } from 'react';
 import { useAlerts, useResolveAlert } from '@/hooks/useAlerts';
 import type { Alert, RiskSeverity, AlertSource } from '@/types';
 
-const SEVERITY_COLORS: Record<string, string> = {
+const SEVERITY_COLORS: Record<RiskSeverity, string> = {
     high: 'border-red-500',
     medium: 'border-yellow-300',
     low: 'border-blue-300',
 };
-const SEVERITY_ICONS: Record<string, string> = {
+const SEVERITY_ICONS: Record<RiskSeverity, string> = {
     high: '🔴', medium: '🟡', low: '🔵',
 };
 const STATUS_BADGES: Record<string, string> = {
@@ -28,7 +28,7 @@ export function AlertsRisksPanel() {
     const { data: alerts = [], isLoading, error } = useAlerts();
     const resolveAlert = useResolveAlert();
     const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'resolved' | 'acknowledged'>('active');
-    const [filterSeverity, setFilterSeverity] = useState<string>('all');
+    const [filterSeverity, setFilterSeverity] = useState<RiskSeverity | 'all'>('all');
 
     async function handleResolve(id: number) {
         await resolveAlert.mutateAsync({ id, status: 'resolved' });
@@ -93,7 +93,7 @@ export function AlertsRisksPanel() {
                     </button>
                 ))}
                 <span className="text-sm font-medium text-slate-600 dark:text-slate-400 self-center ml-4 mr-1">Severity:</span>
-                {['all', 'high', 'medium', 'low'].map(sev => (
+                {(['all', 'high', 'medium', 'low'] as const).map(sev => (
                     <button
                         key={sev}
                         onClick={() => setFilterSeverity(sev)}
@@ -103,7 +103,7 @@ export function AlertsRisksPanel() {
                                 : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border hover:border-slate-400'
                         }`}
                     >
-                        {SEVERITY_ICONS[sev as string] || ''} {sev}
+                        {SEVERITY_ICONS[sev as RiskSeverity]} {sev}
                     </button>
                 ))}
             </div>
@@ -119,7 +119,7 @@ export function AlertsRisksPanel() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
                 {filtered.map((alert: Alert) => (
-                    <div key={alert.id} className={`bg-white dark:bg-slate-800 border-l-4 ${SEVERITY_COLORS[alert.severity] || 'border-slate-300'} rounded-xl p-4 shadow-sm`}>
+                    <div key={alert.id} className={`bg-white dark:bg-slate-800 border-l-4 ${SEVERITY_COLORS[alert.severity]} rounded-xl p-4 shadow-sm`}>
                         <div className="flex items-start justify-between mb-2">
                             <div className="flex items-center gap-2 min-w-0">
                                 <span>{SEVERITY_ICONS[alert.severity]}</span>
