@@ -45,11 +45,6 @@ export function AlertCard({ alert, onResolve }: AlertCardProps) {
                 <p className="font-medium text-sm text-slate-900 dark:text-white">{alert.title}</p>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">{alert.description}</p>
             </div>
-            {alert.root_cause && (
-                <div className="text-xs text-slate-400 dark:text-slate-500">
-                    <span className="font-medium">Root cause:</span> {alert.root_cause}
-                </div>
-            )}
             <div className="text-xs text-slate-400 dark:text-slate-500">
                 Created {new Date(alert.created_at).toLocaleString()}
             </div>
