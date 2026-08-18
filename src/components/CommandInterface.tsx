@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useCreateTask, useUpdateTask, useDeleteTask } from '@/hooks/useTasks';
-import { CardSkeleton } from '@/components/ui/SkeletonLoader';
+import { CardSkeleton } from '@/components/SkeletonLoader';
 
 type ParsedCommand = {
     type: string;
@@ -71,7 +71,7 @@ export function CommandInterface({ onUpdate }: { onUpdate?: () => void }) {
             <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{'⌨'} Command Interface</h2>
             <p className="text-sm text-slate-500">Execute commands via JSON input</p>
 
-            <CardSkeleton title="Command Input">
+            <CardSkeleton className="border p-4">
                 <form onSubmit={handleSubmit} className="space-y-3">
                     <textarea
                         value={input}
@@ -89,7 +89,7 @@ export function CommandInterface({ onUpdate }: { onUpdate?: () => void }) {
             </CardSkeleton>
 
             {output.length > 0 && (
-                <CardSkeleton title="Output">
+                <CardSkeleton className="border p-4">
                     <ul className="space-y-1 font-mono text-xs">
                         {output.map((msg, i) => (
                             <li key={i} className="text-slate-600 dark:text-slate-400">{msg}</li>
