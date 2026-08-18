@@ -33,5 +33,6 @@ export function useRecordOutcome() {
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: QUERY_KEYS.outcomes.all });
         },
+        onError: (err) => console.error('useRecordOutcome failed:', err),
     });
 }

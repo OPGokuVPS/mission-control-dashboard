@@ -33,6 +33,7 @@ export function useCreateExperiment() {
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: QUERY_KEYS.experiments.all });
         },
+        onError: (err) => console.error('useCreateExperiment failed:', err),
     });
 }
 
@@ -47,5 +48,6 @@ export function useUpdateExperiment() {
         onSuccess: (_, vars) => {
             qc.invalidateQueries({ queryKey: QUERY_KEYS.experiments.all });
         },
+        onError: (err) => console.error('useUpdateExperiment failed:', err),
     });
 }

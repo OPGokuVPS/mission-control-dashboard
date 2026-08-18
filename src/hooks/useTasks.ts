@@ -55,6 +55,7 @@ export function useCreateTask() {
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: QUERY_KEYS.tasks.all });
         },
+        onError: (err) => console.error('useCreateTask failed:', err),
     });
 }
 
@@ -75,6 +76,7 @@ export function useUpdateTask() {
             qc.invalidateQueries({ queryKey: QUERY_KEYS.tasks.all });
             qc.invalidateQueries({ queryKey: QUERY_KEYS.task.byId(vars.id) });
         },
+        onError: (err) => console.error('useUpdateTask failed:', err),
     });
 }
 

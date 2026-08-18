@@ -25,6 +25,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         supabase.auth.getSession().then(({ data: { session } }) => {
             setUser(session?.user ?? null);
             setLoading(false);
+        }).catch((err) => {
+            console.error('auth-provider: getSession failed:', err.message);
+            setLoading(false);
         });
 
         // Listen for auth changes

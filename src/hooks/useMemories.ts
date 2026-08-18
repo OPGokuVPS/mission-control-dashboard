@@ -33,6 +33,7 @@ export function useAddMemory() {
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: QUERY_KEYS.memories.all });
         },
+        onError: (err) => console.error('useAddMemory failed:', err),
     });
 }
 
@@ -47,5 +48,6 @@ export function useDeleteMemory() {
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: QUERY_KEYS.memories.all });
         },
+        onError: (err) => console.error('useDeleteMemory failed:', err),
     });
 }

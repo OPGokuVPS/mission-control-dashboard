@@ -33,6 +33,7 @@ export function useCreateWorkflow() {
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: QUERY_KEYS.workflows.all });
         },
+        onError: (err) => console.error('useCreateWorkflow failed:', err),
     });
 }
 
@@ -47,5 +48,6 @@ export function useUpdateWorkflow() {
         onSuccess: (_, vars) => {
             qc.invalidateQueries({ queryKey: QUERY_KEYS.workflows.all });
         },
+        onError: (err) => console.error('useUpdateWorkflow failed:', err),
     });
 }

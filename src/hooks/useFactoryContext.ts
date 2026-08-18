@@ -35,5 +35,6 @@ export function useUpdateFactoryContext() {
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: QUERY_KEYS.factoryContext });
         },
+        onError: (err) => console.error('useUpdateFactoryContext failed:', err),
     });
 }

@@ -33,5 +33,6 @@ export function useAddInsight() {
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: QUERY_KEYS.insights.all });
         },
+        onError: (err) => console.error('useAddInsight failed:', err),
     });
 }

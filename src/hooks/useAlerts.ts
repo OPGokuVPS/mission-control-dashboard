@@ -33,5 +33,6 @@ export function useResolveAlert() {
             return data;
         },
         onSuccess: () => qc.invalidateQueries({ queryKey: [QUERY_KEYS.alerts] }),
+        onError: (err) => console.error('useResolveAlert failed:', err),
     });
 }
