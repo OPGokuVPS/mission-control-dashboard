@@ -18,6 +18,20 @@ export const QUERY_KEYS = {
 // Named exports so hooks can use QUERY_KEYS.tasks, QUERY_KEYS.workflows etc
 export const { factoryContext, tasks, task, workflows, workflow, agentActivity, memoryVault, insights, alerts, experiments, outcomes, costTracking, errors, dashboardSummary } = QUERY_KEYS;
 
+// Dynamic query keys used by specific hooks
+export const costs = {
+    recent: (limit: number) => ['costs', 'recent', limit] as const,
+};
+
+export const dashboard = {
+    summary: ['dashboard', 'summary'] as const,
+};
+
+export const memories = {
+    all: ['memories', 'all'] as const,
+    byCategory: (category?: string | null) => ['memories', 'byCategory', category ?? 'all'] as const,
+};
+
 export function taskQueryKey(id: number) {
     return [...QUERY_KEYS.task, id] as const;
 }

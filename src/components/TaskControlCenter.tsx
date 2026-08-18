@@ -1,111 +1,227 @@
 'use client';
 
 import { useState } from 'react';
-import { useFactoryContext, useUpdateFactoryContext } from '@/hooks/useFactoryContext';
+import { useTasks, useCreateTask, useUpdateTask, useDeleteTask } from '@/hooks/useTasks';
+import type { TaskStatus, PriorityLevel, AgentRole } from '@/types';
 import { CardSkeleton, SkeletonLoader } from '@/components/SkeletonLoader';
-import type { FactoryContext } from '@/types';
 
-const BUSINESS_MODELS = ['SaaS', 'Marketplace', 'E-commerce', 'Fintech', 'Healthcare', 'Travel', 'Education', 'Lead Generation', 'Subscription', 'Transactional'];
-const INDUSTRIES = ['Technology', 'Finance', 'Healthcare', 'Retail', 'Manufacturing', 'Education', 'Real Estate', 'Media', 'Logistics', 'Consulting'];
+export function TaskControlCenter({ onUpdate }: { onUpdate: () => void }) {
+    const { data: tasks = [], isLoading, error } = useTasks();
+    const createTask = useCreateTask();
+    const updateTask = useUpdateTask();
+    const deleteTask = useDeleteTask();
+    const [showForm, setShowForm] = useState(false);
+    const [title, setTitle] = useState('');
+    const [description, setDescription] = useState('');
+    const [priority, setPriority] = useState<PriorityLevel>('medium');
+    const [agent, setAgent] = useState<AgentRole>('backend_engineer');
+    const [filterStatus, setFilterStatus] = useState<TaskStatus | 'all'>('all');
 
-export function StrategyOverview({ onUpdate }: { onUpdate?: () => void }) {
-    const { data: context, isLoading, error } = useFactoryContext();
-    const updateCtx = useUpdateFactoryContext();
-    const [editing, setEditing] = useState(false);
-    const [form, setForm] = useState<Partial<FactoryContext>>({});
+    async function handleCreate(e: React.FormEvent) {
+        e.preventDefault();
+        if (!title.trim()) return;
+        await createTask.mutateAsync({
+            title: title.trim(),
+            description: description.trim(),
+            priority,
+            assigned_agent: agent,
+        });
+        setTitle('');
+        setDescription('');
+        setPriority('medium');
+        setAgent('backend_engineer');
+        setShowForm(false);
+        onUpdate();
+    }
 
-    if (error) return <div className="text-red-500">Error loading strategy context</div>;
+    async function handleDelete(id: number) {
+        if (!confirm('Delete this task?')) return;
+        await deleteTask.mutateAsync(id);
+        onUpdate();
+    }
 
-    if (!context || !context.industry) {
+    async function handleStatusChange(id: number, newStatus: TaskStatus) {
+        await updateTask.mutateAsync({ id, status: newStatus });
+        onUpdate();
+    }
+
+    const filtered = filterStatus === 'all' ? tasks : tasks.filter(t => t.status === filterStatus);
+    const statuses: Array<TaskStatus | 'all'> = ['all', 'backlog', 'active', 'blocked', 'in_review', 'done'];
+
+    if (error) {
         return (
-            <div className="space-y-4">
-                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">🎯 Factory Context Configuration</h2>
-                <p className="text-slate-600 dark:text-slate-400">Configure your factory context to enable intelligent agent routing and KPI-aligned task prioritization.</p>
-                <button onClick={() => setEditing(true)} className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors">Configure Factory Context</button>
-                <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6">
-                    <h3 className="font-semibold text-lg mb-4">Why this matters:</h3>
-                    <ul className="space-y-2 text-sm text-slate-600 dark:text-slate-400">
-                        <li>• Agent roles are automatically assigned based on business context</li>
-                        <li>• Task priorities align with your primary KPIs</li>
-                        <li>• All decisions flow from your industry and constraints</li>
-                    </ul>
-                </div>
+            <div className="text-center py-12">
+                <p className="text-red-500 mb-2">Failed to load tasks</p>
+                <p className="text-sm text-slate-500">{(error as Error).message}</p>
             </div>
         );
     }
 
-    if (editing) {
+    if (isLoading) {
         return (
-            <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">🎯 Edit Factory Context</h2>
-                    <button onClick={() => setEditing(false)} className="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg">Cancel</button>
-                </div>
-                <form onSubmit={async (e) => { e.preventDefault(); await updateCtx.mutateAsync(form as any); setEditing(false); onUpdate?.(); }} className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Industry</label>
-                        <select value={form.industry || ''} onChange={(e) => setForm(f => ({ ...f, industry: e.target.value }))} className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-transparent focus:ring-2 focus:ring-blue-500 outline-none">
-                            <option value="">Select industry...</option>
-                            {INDUSTRIES.map(i => <option key={i} value={i}>{i}</option>)}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Business Model</label>
-                        <select value={form.business_model || ''} onChange={(e) => setForm(f => ({ ...f, business_model: e.target.value }))} className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-transparent focus:ring-2 focus:ring-blue-500 outline-none">
-                            <option value="">Select model...</option>
-                            {BUSINESS_MODELS.map(m => <option key={m} value={m}>{m}</option>)}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Primary KPIs (comma-separated)</label>
-                        <input value={form.primary_kpis?.join(', ') || ''} onChange={(e) => setForm(f => ({ ...f, primary_kpis: e.target.value.split(',').map(s => s.trim()).filter(Boolean) }))} placeholder="revenue, conversion rate, retention" className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-transparent focus:ring-2 focus:ring-blue-500 outline-none" />
-                    </div>
-                    <button type="submit" disabled={updateCtx.isPending} className="w-full sm:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl font-medium transition-colors">Save Changes</button>
-                </form>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {Array.from({ length: 6 }).map((_, i) => <CardSkeleton key={i} />)}
             </div>
         );
     }
 
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">🎯 Factory Context</h2>
-                <button onClick={() => setEditing(true)} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">Edit</button>
+        <div className="space-y-4">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">✅ Task Control Center</h2>
+                <button
+                    onClick={() => setShowForm(!showForm)}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors w-full sm:w-auto"
+                >
+                    {showForm ? '\u2715 Cancel' : '+ New Task'}
+                </button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-5">
-                    <div className="text-sm text-blue-600 dark:text-blue-400 mb-1">Industry</div>
-                    <div className="text-lg font-semibold text-blue-800 dark:text-blue-200">{context.industry}</div>
-                </div>
-                <div className="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 border border-purple-200 dark:border-purple-800 rounded-xl p-5">
-                    <div className="text-sm text-purple-600 dark:text-purple-400 mb-1">Business Model</div>
-                    <div className="text-lg font-semibold text-purple-800 dark:text-purple-200">{context.business_model}</div>
-                </div>
+
+            {/* Filter tabs */}
+            <div className="flex gap-2 overflow-x-auto pb-2">
+                {statuses.map(status => (
+                    <button
+                        key={status}
+                        onClick={() => setFilterStatus(status)}
+                        className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                            filterStatus === status
+                                ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+                                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border hover:border-slate-400'
+                        }`}
+                    >
+                        {status.charAt(0).toUpperCase() + status.slice(1)} ({tasks.filter(t => status === 'all' || t.status === status).length})
+                    </button>
+                ))}
             </div>
-            {context.primary_kpis && context.primary_kpis.length > 0 && (
-                <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5">
-                    <h3 className="font-semibold text-slate-900 dark:text-white mb-3">📊 Primary KPIs</h3>
-                    <div className="flex flex-wrap gap-2">
-                        {context.primary_kpis.map((kpi, i) => (<span key={i} className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full text-sm font-medium">{kpi}</span>))}
+
+            {/* Create form */}
+            {showForm && (
+                <form onSubmit={handleCreate} className="bg-white dark:bg-slate-800 border rounded-xl p-4 space-y-3">
+                    <input
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        placeholder="Task title (required)"
+                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                        autoFocus
+                    />
+                    <textarea
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder="Description (optional)"
+                        rows={2}
+                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-y"
+                    />
+                    <div className="flex flex-wrap gap-3">
+                        <select
+                            value={priority}
+                            onChange={(e) => setPriority(e.target.value as PriorityLevel)}
+                            className="px-3 py-2 border rounded-lg text-sm"
+                        >
+                            <option value="critical">Critical</option>
+                            <option value="high">High</option>
+                            <option value="medium">Medium</option>
+                            <option value="low">Low</option>
+                        </select>
+                        <select
+                            value={agent}
+                            onChange={(e) => setAgent(e.target.value as AgentRole)}
+                            className="px-3 py-2 border rounded-lg text-sm"
+                        >
+                            {Object.entries(AGENT_LABELS).map(([key, label]) => (
+                                <option key={key} value={key}>{label}</option>
+                            ))}
+                        </select>
                     </div>
+                    <button
+                        type="submit"
+                        disabled={!title.trim() || createTask.isPending}
+                        className="w-full sm:w-auto px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg font-medium transition-colors"
+                    >
+                        {createTask.isPending ? 'Creating...' : 'Create Task'}
+                    </button>
+                </form>
+            )}
+
+            {/* Empty state */}
+            {filtered.length === 0 && (
+                <div className="text-center py-12 text-slate-400">
+                    {tasks.length === 0 ? 'No tasks yet. Create one to get started!' : `No ${filterStatus} tasks.`}
                 </div>
             )}
-            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5">
-                <h3 className="font-semibold text-slate-900 dark:text-white mb-4">🤖 Agent Routing Guide</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {[...Array(9)].map((_, i) => {
-                        const icons = ['🎯', '🏗️', '⚙️', '🎨', '🔌', '✅', '🚀', '🔒', '📊', '📈', '🛟'];
-                        const labels = ['Strategy', 'Architecture', 'Backend', 'Frontend', 'Integration', 'QA', 'DevOps', 'Security', 'Data', 'Growth', 'Support'];
-                        return (<div key={i} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg"><span className="text-xl">{icons[i]}</span><span className="text-sm font-medium text-slate-700 dark:text-slate-300">{labels[i]}</span></div>);
-                    })}
+
+            {/* Tasks grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+                {filtered.map(task => (
+                    <TaskCard
+                        key={task.id}
+                        task={task}
+                        onStatusChange={handleStatusChange}
+                        onDelete={handleDelete}
+                    />
+                ))}
+            </div>
+        </div>
+    );
+}
+
+function TaskCard({ task, onStatusChange, onDelete }: {
+    task: any;
+    onStatusChange: (id: number, status: TaskStatus) => Promise<void>;
+    onDelete: (id: number) => Promise<void>;
+}) {
+    const possibleTransitions = STATUS_FLOW[task.status];
+    const isDone = task.status === 'done';
+
+    return (
+        <div className={`bg-white dark:bg-slate-800 border rounded-xl p-4 transition-all ${isDone ? 'opacity-60' : ''}`}>
+            <div className="flex items-start justify-between gap-2 mb-3">
+                <h3 className={`font-semibold text-slate-900 dark:text-white ${isDone ? 'line-through' : ''}`}>
+                    {task.title}
+                </h3>
+                <div className="flex items-center gap-1 shrink-0">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${PRIORITY_COLORS[task.priority]}`}>
+                        {task.priority}
+                    </span>
                 </div>
             </div>
-            {context.constraints && (<div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5">
-                <h3 className="font-semibold text-slate-900 dark:text-white mb-3">⚠️ Business Constraints</h3>
-                <div className="flex flex-wrap gap-2">
-                    {JSON.parse(context.constraints).map((c: string, i: number) => (<span key={i} className="px-3 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full text-sm">{c}</span>))}
-                </div>
-            </div>)}
+
+            {task.description && (
+                <p className="text-sm text-slate-600 dark:text-slate-400 mb-3 line-clamp-2">{task.description}</p>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2 mb-3 text-xs">
+                <span className="bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-md">
+                    {AGENT_LABELS[task.assigned_agent]}
+                </span>
+                <span className="text-slate-400">|</span>
+                <span className="text-slate-500 dark:text-slate-400">Impact: {Math.round(task.impact_score)}</span>
+            </div>
+
+            {/* Status transitions */}
+            <div className="flex flex-wrap gap-1.5">
+                {possibleTransitions.map(newStatus => (
+                    <button
+                        key={newStatus}
+                        onClick={() => onStatusChange(task.id, newStatus)}
+                        className="px-3 py-1 text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors capitalize"
+                    >
+                        → {newStatus.replace('_', ' ')}
+                    </button>
+                ))}
+            </div>
+
+            {/* Actions */}
+            <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700 flex justify-end">
+                {!isDone && (
+                    <button
+                        onClick={() => onDelete(task.id)}
+                        className="text-xs text-red-500 hover:text-red-700 transition-colors"
+                    >
+                        Delete
+                    </button>
+                )}
+            </div>
         </div>
     );
 }
