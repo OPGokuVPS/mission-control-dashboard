@@ -192,7 +192,7 @@ function TaskCard({ task, onStatusChange, onDelete }: {
 
             <div className="flex flex-wrap items-center gap-2 mb-3 text-xs">
                 <span className="bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-md">
-                    {AGENT_LABELS[task.assigned_agent]}
+                    {AGENT_LABELS[task.assigned_agent ?? ""] ?? task.assigned_agent ?? "Unassigned"}
                 </span>
                 <span className="text-slate-400">|</span>
                 <span className="text-slate-500 dark:text-slate-400">Impact: {Math.round(task.impact_score)}</span>
