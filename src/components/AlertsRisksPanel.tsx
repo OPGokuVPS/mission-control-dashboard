@@ -10,18 +10,12 @@ const SEVERITY_COLORS: Record<RiskSeverity, string> = {
     low: 'border-blue-300',
 };
 const SEVERITY_ICONS: Record<RiskSeverity, string> = {
-    high: '🔴', medium: '🟡', low: '🔵',
+    high: '\ud83d\udd34', medium: '\ud83d\udfe1', low: '\ud83d\udd35',
 };
 const STATUS_BADGES: Record<string, string> = {
     active: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300',
     resolved: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300',
     acknowledged: 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300',
-};
-const SOURCE_LABELS: Record<string, string> = {
-    technical: '⚙️ Technical',
-    business_risk: '📊 Business Risk',
-    operational: '🛠️ Operational',
-    compliance: '📋 Compliance',
 };
 
 export function AlertsRisksPanel() {
@@ -70,9 +64,9 @@ export function AlertsRisksPanel() {
         <div className="space-y-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div>
-                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{'🔔'} Alerts & Risks</h2>
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{'\ud83d\udd14'} Alerts & Risks</h2>
                     <p className="text-sm text-slate-500 mt-0.5">
-                        {totalActive} active · {highPriority} high priority
+                        {totalActive} active \u00b7 {highPriority} high priority
                     </p>
                 </div>
             </div>
@@ -137,7 +131,7 @@ export function AlertsRisksPanel() {
                                     onClick={() => handleResolve(alert.id)}
                                     className="px-3 py-1 text-xs font-medium bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-300 rounded-lg hover:bg-green-100 transition-colors"
                                 >
-                                    {'✓'} Resolve
+                                    {'\u2713'} Resolve
                                 </button>
                             )}
                         </div>
