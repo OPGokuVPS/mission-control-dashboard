@@ -45,7 +45,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     const signUp = async (email: string, password: string) => {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+                emailRedirectTo:
+                    process.env.NEXT_PUBLIC_SITE_URL ||
+                    'https://mission-control-dashboard-op-ai-gokus-projects.vercel.app/auth/callback',
+            },
+        });
         if (error) throw error;
     };
 

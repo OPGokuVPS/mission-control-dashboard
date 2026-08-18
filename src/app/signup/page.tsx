@@ -31,7 +31,8 @@ export default function SignupPage() {
         try {
             await signUp(email, password);
             alert('Account created! Check your email for confirmation.');
-            router.push('/login');
+            setLoading(false);
+            return;
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Signup failed');
         } finally {
