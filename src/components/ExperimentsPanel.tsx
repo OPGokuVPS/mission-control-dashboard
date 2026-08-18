@@ -36,7 +36,7 @@ export function ExperimentsPanel() {
     async function handleCreate(e: React.FormEvent) {
         e.preventDefault();
         if (!name.trim() || !hypothesis.trim() || !metricTracked.trim()) return;
-        await createExperiment.mutateAsync({ name: name.trim(), hypothesis: hypothesis.trim(), variant_a_text: variantA, variant_b_text: variantB, metric_tracked: metricTracked.trim() });
+        await createExperiment.mutateAsync({ name: name.trim(), hypothesis: hypothesis.trim(), variant_a_text: variantA, variant_b_text: variantB, metric_tracked: metricTracked.trim(), status: 'running' as ExperimentStatus });
         setName('');
         setHypothesis('');
         setMetricTracked('');
