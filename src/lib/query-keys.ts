@@ -15,6 +15,9 @@ export const QUERY_KEYS = {
     dashboardSummary: ['dashboard_summary'] as const,
 } as const;
 
+// Named exports so hooks can use QUERY_KEYS.tasks, QUERY_KEYS.workflows etc
+export const { factoryContext, tasks, task, workflows, workflow, agentActivity, memoryVault, insights, alerts, experiments, outcomes, costTracking, errors, dashboardSummary } = QUERY_KEYS;
+
 export function taskQueryKey(id: number) {
     return [...QUERY_KEYS.task, id] as const;
 }
