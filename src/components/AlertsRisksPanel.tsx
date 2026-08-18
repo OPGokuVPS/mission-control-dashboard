@@ -2,124 +2,149 @@
 
 import { useState } from 'react';
 import { useAlerts, useResolveAlert } from '@/hooks/useAlerts';
-import type { RiskSeverity, AlertSource } from '@/types';
-import { CardSkeleton, SkeletonLoader } from '@/components/SkeletonLoader';
+import type { Alert, RiskSeverity, AlertSource } from '@/types';
 
-const SEVERITY_ICONS: Record<RiskSeverity, string> = { high: '🔴', medium: '🟡', low: '🔵' };
-const SEVERITY_COLORS: Record<RiskSeverity, string> = {
-    high: 'border-red-300 dark:border-red-700',
-    medium: 'border-yellow-300 dark:border-yellow-700',
-    low: 'border-blue-300 dark:border-blue-700',
+const SEVERITY_COLORS: Record<string, string> = {
+    critical: 'border-red-500',
+    high: 'border-red-300',
+    medium: 'border-yellow-300',
+    low: 'border-blue-300',
 };
-
-const STATUS_LABELS: Record<string, string> = {
-    active: 'Active',
-    acknowledged: 'Acknowledged',
-    resolved: 'Resolved',
+const SEVERITY_ICONS: Record<string, string> = {
+    high: '🔴', medium: '🟡', low: '🔵', critical: '🔥',
+};
+const STATUS_BADGES: Record<string, string> = {
+    active: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300',
+    resolved: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300',
+    acknowledged: 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300',
+};
+const SOURCE_LABELS: Record<string, string> = {
+    technical: '⚙️ Technical',
+    business_risk: '📊 Business Risk',
+    operational: '🛠️ Operational',
+    compliance: '📋 Compliance',
 };
 
 export function AlertsRisksPanel() {
-    const [statusFilter, setStatusFilter] = useState<string>('all');
-    const [severityFilter, setSeverityFilter] = useState<string>('all');
-    const { data: alerts, isLoading: loadingAlerts } = useAlerts({
-        status: statusFilter === 'all' ? undefined : statusFilter as any,
-        severity: severityFilter === 'all' ? undefined : (severityFilter as any),
-    });
-    const resolveMutation = useResolveAlert();
-    const alertList = alerts ?? [];
+    const { data: alerts = [], isLoading, error } = useAlerts();
+    const resolveAlert = useResolveAlert();
+    const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'resolved' | 'acknowledged'>('active');
+    const [filterSeverity, setFilterSeverity] = useState<string>('all');
 
-    const filteredAlerts = useMemo(() => {
-        return alertList.filter(alert => {
-            const statusMatch = statusFilter === 'all' || alert.status === statusFilter;
-            const severityMatch = severityFilter === 'all' || alert.severity === severityFilter;
-            return statusMatch && severityMatch;
-        });
-    }, [alertList, statusFilter, severityFilter]);
-
-    const handleResolve = async (id: number) => {
-        try {
-            await resolveMutation.mutateAsync(id);
-        } catch (error) {
-            console.error('Failed to resolve alert:', error);
-        }
-    };
-
-    if (loadingAlerts) {
-        return <CardSkeleton title="Alerts & Risks" />;
+    async function handleResolve(id: number) {
+        await resolveAlert.mutateAsync({ id, status: 'resolved' });
     }
+
+    if (error) {
+        return (
+            <div className="text-center py-12">
+                <p className="text-red-500 mb-2">Failed to load alerts</p>
+                <p className="text-sm text-slate-500">{(error as Error).message}</p>
+            </div>
+        );
+    }
+
+    if (isLoading) {
+        return (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm animate-pulse">
+                        <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-3/4 mb-3" />
+                        <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded w-full mb-2" />
+                        <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded w-2/3" />
+                    </div>
+                ))}
+            </div>
+        );
+    }
+
+    const filtered = alerts.filter((a: Alert) => {
+        if (filterStatus !== 'all' && a.status !== filterStatus) return false;
+        if (filterSeverity !== 'all' && a.severity !== filterSeverity) return false;
+        return true;
+    });
+
+    const totalActive = alerts.filter((a: Alert) => a.status === 'active').length;
+    const highCritical = alerts.filter((a: Alert) => a.status === 'active' && (a.severity === 'high' || a.severity === 'critical')).length;
 
     return (
         <div className="space-y-4">
-            <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Alerts &amp; Risks</h2>
-                <div className="flex gap-2">
-                    <select
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        className="text-sm px-2 py-1 rounded border bg-white dark:bg-slate-800"
-                    >
-                        <option value="all">All Statuses</option>
-                        <option value="active">Active</option>
-                        <option value="acknowledged">Acknowledged</option>
-                        <option value="resolved">Resolved</option>
-                    </select>
-                    <select
-                        value={severityFilter}
-                        onChange={(e) => setSeverityFilter(e.target.value)}
-                        className="text-sm px-2 py-1 rounded border bg-white dark:bg-slate-800"
-                    >
-                        <option value="all">All Severities</option>
-                        <option value="high">High</option>
-                        <option value="medium">Medium</option>
-                        <option value="low">Low</option>
-                    </select>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{'🔔'} Alerts & Risks</h2>
+                    <p className="text-sm text-slate-500 mt-0.5">
+                        {totalActive} active · {highCritical} critical
+                    </p>
                 </div>
             </div>
-            {filteredAlerts.length === 0 ? (
-                <p className="text-sm text-slate-500 text-center py-8">No alerts match your filters.</p>
-            ) : (
-                <div className="grid gap-3 sm:grid-cols-2">
-                    {filteredAlerts.map(alert => (
-                        <div
-                            key={alert.id}
-                            className={`rounded-lg border p-4 ${SEVERITY_COLORS[alert.severity]}`}
-                        >
-                            <div className="flex items-start justify-between gap-2">
-                                <div>
-                                    <span className="text-xs font-medium">{SEVERITY_ICONS[alert.severity]}</span>
-                                    <span className="ml-2 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                        {alert.severity}
-                                    </span>
-                                    <span className="ml-2 text-xs text-slate-400 dark:text-slate-500">
-                                        {alert.source}
-                                    </span>
-                                </div>
-                                <span className="text-xs bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full">
-                                    {STATUS_LABELS[alert.status]}{' → '}{'∆'}
-                                </span>
-                            </div>
-                            <div className="mt-2">
-                                <p className="font-medium text-sm text-slate-900 dark:text-white">{alert.title}</p>
-                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">{alert.description}</p>
-                            </div>
-                            <div className="flex items-center justify-between mt-3">
-                                <span className="text-xs text-slate-400 dark:text-slate-500">
-                                    Created {new Date(alert.created_at).toLocaleString()}
-                                </span>
-                                {alert.status !== 'resolved' && (
-                                    <button
-                                        onClick={() => handleResolve(alert.id)}
-                                        disabled={resolveMutation.isPending}
-                                        className="text-xs px-3 py-1 rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 transition-colors disabled:opacity-50"
-                                    >
-                                        {resolveMutation.isPending && resolveMutation.variables === alert.id ? '✓ Resolving...' : 'Resolve'}
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    ))}
+
+            <div className="flex flex-wrap gap-2">
+                <span className="text-sm font-medium text-slate-600 dark:text-slate-400 self-center mr-1">Status:</span>
+                {(['all', 'active', 'resolved', 'acknowledged'] as const).map(status => (
+                    <button
+                        key={status}
+                        onClick={() => setFilterStatus(status)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium capitalize transition-colors ${
+                            filterStatus === status
+                                ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+                                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border hover:border-slate-400'
+                        }`}
+                    >
+                        {status} ({alerts.filter((a: Alert) => status === 'all' || a.status === status).length})
+                    </button>
+                ))}
+                <span className="text-sm font-medium text-slate-600 dark:text-slate-400 self-center ml-4 mr-1">Severity:</span>
+                {['all', 'high', 'medium', 'low', 'critical'].map(sev => (
+                    <button
+                        key={sev}
+                        onClick={() => setFilterSeverity(sev)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium capitalize transition-colors ${
+                            filterSeverity === sev
+                                ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+                                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border hover:border-slate-400'
+                        }`}
+                    >
+                        {SEVERITY_ICONS[sev as string] || ''} {sev}
+                    </button>
+                ))}
+            </div>
+
+            {filtered.length === 0 && (
+                <div className="text-center py-12 text-slate-400 bg-white dark:bg-slate-800 border rounded-xl">
+                    {alerts.length === 0
+                        ? 'No alerts. All systems nominal!'
+                        : 'No alerts matching selected filters.'
+                    }
                 </div>
             )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+                {filtered.map((alert: Alert) => (
+                    <div key={alert.id} className={`bg-white dark:bg-slate-800 border-l-4 ${SEVERITY_COLORS[alert.severity] || 'border-slate-300'} rounded-xl p-4 shadow-sm`}>
+                        <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                                <span>{SEVERITY_ICONS[alert.severity]}</span>
+                                <h3 className="font-semibold text-slate-900 dark:text-white text-sm truncate">{alert.title}</h3>
+                            </div>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium capitalize shrink-0 ${STATUS_BADGES[alert.status] || ''}`}>
+                                {alert.status}
+                            </span>
+                        </div>
+                        <p className="text-sm text-slate-600 dark:text-slate-400 mb-3 line-clamp-3">{alert.description}</p>
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-700 text-xs text-slate-400">
+                            <span>{new Date(alert.created_at).toLocaleString()}</span>
+                            {alert.status === 'active' && (
+                                <button
+                                    onClick={() => handleResolve(alert.id)}
+                                    className="px-3 py-1 text-xs font-medium bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-300 rounded-lg hover:bg-green-100 transition-colors"
+                                >
+                                    {'✓'} Resolve
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 }
