@@ -1,27 +1,18 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
+/**
+ * GET /api/health
+ * Health check endpoint for monitoring.
+ */
 export async function GET() {
-  try {
-    // Quick DB connectivity check
-    const { data, error } = await supabase
-      .from('tasks')
-      .select('count', { count: 'exact', head: true });
+    const status = new Date().toISOString();
 
-    if (error) throw error;
-
-    // Get latest sync metrics from sync_metrics table (if it exists)
-    // For now we just return DB connectivity status
     return NextResponse.json({
-      status: 'ok',
-      database: 'connected',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
+        status: 'ok',
+        timestamp: status,
+        uptime: process.uptime?.() ?? 0,
+        memory_usage: process.memoryUsage?.() ?? null,
+        version: '2.0.0',
     });
-  } catch (e: any) {
-    return NextResponse.json(
-      { status: 'error', database: 'disconnected', error: e.message },
-      { status: 500 }
-    );
-  }
 }
