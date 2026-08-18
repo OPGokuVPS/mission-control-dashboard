@@ -46,8 +46,7 @@ export function useSyncMetrics() {
             stack: error.stack,
             timestamp: new Date().toISOString(),
           },
-        })
-        .catch(() => {}); // Don't throw - we're already in error handling
+        }).then(() => {}); // Fire-and-forget; errors ignored
     }
   };
 

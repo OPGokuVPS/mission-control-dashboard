@@ -24,6 +24,7 @@ export function TaskControlCenter({ onUpdate }: { onUpdate: () => void }) {
             title: title.trim(),
             description: description.trim(),
             priority,
+            status: 'backlog',
             assigned_agent: agent,
         });
         setTitle('');
@@ -40,8 +41,8 @@ export function TaskControlCenter({ onUpdate }: { onUpdate: () => void }) {
         onUpdate();
     }
 
-    async function handleStatusChange(id: number, newStatus: TaskStatus) {
-        await updateTask.mutateAsync({ id, status: newStatus });
+    async function handleStatusChange(id: number, newStatus: string) {
+        await updateTask.mutateAsync({ id, status: newStatus as TaskStatus });
         onUpdate();
     }
 
@@ -203,7 +204,7 @@ function TaskCard({ task, onStatusChange, onDelete }: {
                 {possibleTransitions.map(newStatus => (
                     <button
                         key={newStatus}
-                        onClick={() => onStatusChange(task.id, newStatus)}
+                        onClick={() => onStatusChange(task.id, newStatus as TaskStatus)}
                         className="px-3 py-1 text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors capitalize"
                     >
                         → {newStatus.replace('_', ' ')}

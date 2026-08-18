@@ -25,7 +25,7 @@ export function useTasks() {
 
 export function useTask(id: number | null) {
     return useQuery({
-        queryKey: QUERY_KEYS.task.byId(id),
+        queryKey: id ? QUERY_KEYS.task.byId(id) : ['task', 'noop'],
         queryFn: async () => {
             if (!id) return null;
             const { data, error } = await supabase

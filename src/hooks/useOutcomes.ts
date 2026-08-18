@@ -8,7 +8,7 @@ export function useOutcomes(metricCategory?: MetricCategory | null) {
     if (metricCategory) filters.metric_type = metricCategory;
 
     return useQuery({
-        queryKey: QUERY_KEYS.outcomes.byMetric(metricCategory),
+        queryKey: metricCategory ? QUERY_KEYS.outcomes.byMetric(metricCategory) : QUERY_KEYS.outcomes.all,
         queryFn: async () => {
             let q = supabase.from('outcomes').select('*');
             Object.entries(filters).forEach(([key, val]) => {
