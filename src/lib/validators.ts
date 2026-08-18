@@ -31,11 +31,15 @@ export const experimentSchema = z.object({
 // ---------- Input Sanitization ----------
 
 const SQL_INJECTION_PATTERNS = /['"]\s*(?:DROP|DELETE|INSERT|SELECT|UPDATE|TRUNCATE|ALTER|CREATE|EXEC|UNION)\b|--/i;
+const STANDALONE_SQL_PATTERNS = /\b(?:DROP\s+TABLE|DELETE\s+(?:FROM|WHERE)|INSERT\s+INTO|UPDATE\s+\w+\s+SET|TRUNCATE\s+TABLE|ALTER\s+TABLE|CREATE\s+TABLE|EXEC\s*\(|UNION\s+SELECT)\b/i;
 const XSS_PATTERN = /<script[^>]*>|javascript\s*:/i;
 
 export function sanitizeCommand(input: string): string {
     let sanitized = input.replace(/\r\n/g, '\n');
     if (SQL_INJECTION_PATTERNS.test(sanitized)) {
+        throw new Error('Potentially dangerous SQL pattern detected');
+    }
+    if (STANDALONE_SQL_PATTERNS.test(sanitized)) {
         throw new Error('Potentially dangerous SQL pattern detected');
     }
     if (XSS_PATTERN.test(sanitized)) {
