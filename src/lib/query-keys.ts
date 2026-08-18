@@ -1,16 +1,32 @@
-export const factoryContext = ['factoryContext'] as const;
-export const tasks = { all: ['tasks'], byId: (id: number | null) => id ? [...['task', id]] : []; }
-export const workflows = { all: ['workflows'], byStatus: (status?: string | null) => status ? [...['workflows', status]] : ['workflows']; }
-export const agentActivity = { recent: (limit: number) => [...['agent_activity', limit]] as const; }
-export const memories = { all: ['memories'], byCategory: (cat?: string | null) => cat ? [...['memories', cat]] : ['memories']; }
-export const insights = { all: ['insights'], byCategory: (cat?: string | null) => cat ? [...['insights', cat]] : ['insights']; }
-export const alerts = { all: ['alerts'], byFilter: (sev?: string | null, src?: string | null) => [
-    'alerts', ...(sev ? [sev] : []), ...(src ? [src] : [])
-]; }
-export const experiments = { all: ['experiments'], byStatus: (s?: string | null) => s ? [...['experiments', s]] : ['experiments']; }
-export const outcomes = { all: ['outcomes'], byMetric: (m?: string | null) => m ? [...['outcomes', m]] : ['outcomes']; }
-export const costs = { all: ['costs'], recent: (n: number) => [...['costs', n]]; }
-export const errors = { all: ['errors'], recent: (n: number) => [...['errors', n]]; }
-export const dashboard = { summary: ['dashboard_summary']; }
+export const QUERY_KEYS = {
+    factoryContext: ['factory_context'] as const,
+    tasks: ['tasks'] as const,
+    task: ['task'] as const,
+    workflows: ['workflows'] as const,
+    workflow: ['workflow'] as const,
+    agentActivity: ['agent_activity'] as const,
+    memoryVault: ['memory_vault'] as const,
+    insights: ['insights'] as const,
+    alerts: ['alerts'] as const,
+    experiments: ['experiments'] as const,
+    outcomes: ['outcomes'] as const,
+    costTracking: ['cost_tracking'] as const,
+    errors: ['errors'] as const,
+    dashboardSummary: ['dashboard_summary'] as const,
+} as const;
 
-export default { factoryContext, tasks, workflows, agentActivity, memories, insights, alerts, experiments, outcomes, costs, errors, dashboard };
+export function taskQueryKey(id: number) {
+    return [...QUERY_KEYS.task, id] as const;
+}
+
+export function workflowQueryKey(id: number) {
+    return [...QUERY_KEYS.workflow, id] as const;
+}
+
+export function byStatus(status: string) {
+    return `status:${status}`;
+}
+
+export function byAgent(agent: string) {
+    return `agent:${agent}`;
+}
