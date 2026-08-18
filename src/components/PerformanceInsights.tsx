@@ -58,7 +58,7 @@ export function PerformanceInsights() {
                         <select value={category} onChange={(e) => setCategory(e.target.value as MetricCategory)} className="px-3 py-2 border rounded-lg">
                             {Object.entries(CATEGORY_ICONS).map(([key, icon]) => <option key={key} value={key}>{icon} {key.charAt(0).toUpperCase() + key.slice(1)}</option>)}
                         </select>
-                        <select value={impact} onChange={(e) => setImpact(e.target.value)} className="px-3 py-2 border rounded-lg">
+                        <select value={impact} onChange={(e) => setImpact(e.target.value as ImpactLevel)} className="px-3 py-2 border rounded-lg">
                             <option value="low">Low Impact</option>
                             <option value="medium">Medium Impact</option>
                             <option value="high">High Impact</option>
