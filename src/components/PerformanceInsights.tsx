@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useInsights, useAddInsight } from '@/hooks/useInsights';
-import type { MetricCategory } from '@/types';
+import type { MetricCategory, ImpactLevel } from '@/types';
 import { CardSkeleton, SkeletonLoader } from '@/components/SkeletonLoader';
 
 const CATEGORY_ICONS: Record<MetricCategory, string> = {
@@ -20,7 +20,7 @@ export function PerformanceInsights() {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [category, setCategory] = useState<MetricCategory>('performance');
-    const [impact, setImpact] = useState<string>('medium');
+    const [impact, setImpact] = useState<ImpactLevel>('medium');
     const [filterCategory, setFilterCategory] = useState<MetricCategory | 'all'>('all');
 
     async function handleCreate(e: React.FormEvent) {
