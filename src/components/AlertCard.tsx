@@ -1,4 +1,4 @@
-import type { Alert } from '@/hooks/useAlerts';
+import type { Alert } from '@/types';
 
 interface AlertCardProps {
     alert: Alert;
