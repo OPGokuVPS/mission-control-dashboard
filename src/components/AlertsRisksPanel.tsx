@@ -5,12 +5,12 @@ import { useAlerts, useResolveAlert } from '@/hooks/useAlerts';
 import type { Alert, RiskSeverity, AlertSource } from '@/types';
 
 const SEVERITY_COLORS: Record<string, string> = {
-    fatal: 'border-red-500',
-    error: 'border-red-300',
-    warning: 'border-yellow-300',
+    high: 'border-red-500',
+    medium: 'border-yellow-300',
+    low: 'border-blue-300',
 };
 const SEVERITY_ICONS: Record<string, string> = {
-    fatal: '🔴', error: '🟠', warning: '🟡',
+    high: '🔴', medium: '🟡', low: '🔵',
 };
 const STATUS_BADGES: Record<string, string> = {
     active: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300',
@@ -64,7 +64,7 @@ export function AlertsRisksPanel() {
     });
 
     const totalActive = alerts.filter((a: Alert) => a.status === 'active').length;
-    const highCritical = alerts.filter((a: Alert) => a.status === 'active' && (a.severity === 'error' || a.severity === 'fatal')).length;
+    const highPriority = alerts.filter((a: Alert) => a.status === 'active' && a.severity === 'high').length;
 
     return (
         <div className="space-y-4">
@@ -72,7 +72,7 @@ export function AlertsRisksPanel() {
                 <div>
                     <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{'🔔'} Alerts & Risks</h2>
                     <p className="text-sm text-slate-500 mt-0.5">
-                        {totalActive} active · {highCritical} critical
+                        {totalActive} active · {highPriority} high priority
                     </p>
                 </div>
             </div>
@@ -93,7 +93,7 @@ export function AlertsRisksPanel() {
                     </button>
                 ))}
                 <span className="text-sm font-medium text-slate-600 dark:text-slate-400 self-center ml-4 mr-1">Severity:</span>
-                {['all', 'fatal', 'error', 'warning'].map(sev => (
+                {['all', 'high', 'medium', 'low'].map(sev => (
                     <button
                         key={sev}
                         onClick={() => setFilterSeverity(sev)}
