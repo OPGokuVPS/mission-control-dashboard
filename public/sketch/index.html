@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mission Control — Auth UI Mockups</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #0f0f1a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      max-width: 480px;
+      width: 100%;
+    }
+    h1 {
+      text-align: center;
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+      letter-spacing: 0.5px;
+    }
+    p.subtitle {
+      text-align: center;
+      font-size: 0.8rem;
+      color: #64748b;
+      margin-bottom: 32px;
+    }
+    .card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .card-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+    .card-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #f1f5f9;
+    }
+    .card-stance {
+      font-size: 0.7rem;
+      color: #64748b;
+      margin-top: 2px;
+    }
+    .card-desc {
+      font-size: 0.75rem;
+      color: #94a3b8;
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+    .card-preview {
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+      aspect-ratio: 375/667;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .card-preview iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+    .btn-view {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: white;
+      text-align: center;
+      text-decoration: none;
+      border-radius: 10px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      transition: opacity 0.2s;
+    }
+    .btn-view:hover { opacity: 0.9; }
+    .badge {
+      display: inline-block;
+      font-size: 0.6rem;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .badge-dark { background: rgba(99,102,241,0.2); color: #818cf8; }
+    .badge-light { background: rgba(34,197,94,0.2); color: #4ade80; }
+    .badge-glass { background: rgba(168,85,247,0.2); color: #c084fc; }
+    .footer {
+      text-align: center;
+      font-size: 0.65rem;
+      color: #475569;
+      margin-top: 24px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Mission Control</h1>
+    <p class="subtitle">Login &amp; Sign-up UI Mockups — Tap to preview</p>
+
+    <!-- Variant 001 -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon" style="background: linear-gradient(135deg, #6366f1, #4f46e5);">🖥️</div>
+        <div>
+          <div class="card-title">Split Screen Dark <span class="badge badge-dark">Enterprise</span></div>
+          <div class="card-stance">Brand panel + form side-by-side</div>
+        </div>
+      </div>
+      <div class="card-desc">Dark brand hero with animated grid and orbs on the left, clean white login form on the right. Stats row showing agents, uptime, and orchestration.</div>
+      <div class="card-preview">
+        <iframe src="001-split-screen-dark/index.html"></iframe>
+      </div>
+      <a href="001-split-screen-dark/index.html" target="_blank" class="btn-view" style="margin-top:12px;">Open Full View →</a>
+    </div>
+
+    <!-- Variant 002 -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon" style="background: linear-gradient(135deg, #22c55e, #16a34a);">✨</div>
+        <div>
+          <div class="card-title">Minimalist Linear Light <span class="badge badge-light">Clean</span></div>
+          <div class="card-stance">Single column, white background</div>
+        </div>
+      </div>
+      <div class="card-desc">Inspired by Linear and Vercel. Social auth buttons first, underline-style inputs, subtle dot pattern background. Minimal chrome, maximum clarity.</div>
+      <div class="card-preview">
+        <iframe src="002-minimalist-linear-light/index.html"></iframe>
+      </div>
+      <a href="002-minimalist-linear-light/index.html" target="_blank" class="btn-view" style="margin-top:12px;">Open Full View →</a>
+    </div>
+
+    <!-- Variant 003 -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon" style="background: linear-gradient(135deg, #a855f7, #7c3aed);">💎</div>
+        <div>
+          <div class="card-title">Glassmorphism Dark Tabs <span class="badge badge-glass">Premium</span></div>
+          <div class="card-stance">Tab switcher on frosted glass card</div>
+        </div>
+      </div>
+      <div class="card-desc">Animated mesh gradient background with floating particles. A tabbed glass card lets users switch between Social and Email auth seamlessly.</div>
+      <div class="card-preview">
+        <iframe src="003-glassmorphism-dark-tabs/index.html"></iframe>
+      </div>
+      <a href="003-glassmorphism-dark-tabs/index.html" target="_blank" class="btn-view" style="margin-top:12px;">Open Full View →</a>
+    </div>
+
+    <div class="footer">Tap "Open Full View" to see each mockup at full size</div>
+  </div>
+</body>
+</html>

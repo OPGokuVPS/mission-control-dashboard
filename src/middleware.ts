@@ -7,6 +7,7 @@ const PUBLIC_PATHS = [
     '/signup',
     '/api/auth/',
     '/auth/callback',
+    '/sketch/',
 ];
 
 export function middleware(request: NextRequest) {
