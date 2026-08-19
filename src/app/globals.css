@@ -55,7 +55,6 @@ body {
     background: #94a3b8;
 }
 
-/* ===== Line clamp utility ===== */
 .line-clamp-2 {
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -90,4 +89,84 @@ button, input, select, textarea {
     body {
         background: white !important;
     }
+}
+
+/* ===== Auth Split-Screen Animations ===== */
+
+/* Animated grid background */
+.grid-bg {
+    background-image: 
+        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+    animation: gridMove 20s linear infinite;
+}
+
+@keyframes gridMove {
+    0% { background-position: 0 0; }
+    100% { background-position: 60px 60px; }
+}
+
+/* Floating orb */
+.orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.4;
+    animation: float 8s ease-in-out infinite;
+    pointer-events: none;
+}
+
+.orb-1 {
+    width: 300px;
+    height: 300px;
+    background: #6366f1;
+    top: -50px;
+    right: -50px;
+    animation-delay: 0s;
+}
+
+.orb-2 {
+    width: 200px;
+    height: 200px;
+    background: #8b5cf6;
+    bottom: 10%;
+    left: 20%;
+    animation-delay: -3s;
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-20px) scale(1.05); }
+}
+
+/* Social button hover */
+.social-btn {
+    transition: all 0.2s ease;
+}
+.social-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Button shimmer effect */
+.btn-shimmer {
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-shimmer::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(45deg, transparent 40%, rgba(255,255,255,0.1) 50%, transparent 60%);
+    transition: transform 0.6s;
+    transform: translateX(-100%) translateY(-100%);
+}
+
+.btn-shimmer:hover::after {
+    transform: translateX(100%) translateY(100%);
 }
