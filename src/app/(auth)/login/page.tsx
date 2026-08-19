@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, Suspense } from 'react';
 import { useAuth } from '@/lib/auth-provider';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
@@ -15,15 +15,11 @@ const EyeOffIcon = () => (
 const SpinnerIcon = () => (
     <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg>
 );
-const LogoSvg = ({ size = 'lg' }: { size?: 'sm' | 'lg' }) => {
-    const w = size === 'sm' ? 5 : 10;
-    const h = size === 'sm' ? 5 : 10;
-    return (
-        <svg className={`w-${size === 'sm' ? 5 : 10} h-${size === 'sm' ? 5 : 10} text-white`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-        </svg>
-    );
-};
+const LogoSvg = ({ size = 'lg' }: { size?: 'sm' | 'lg' }) => (
+    <svg className={`w-${size === 'sm' ? 5 : 10} h-${size === 'sm' ? 5 : 10} text-white`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+    </svg>
+);
 const MailIcon = () => (
     <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
 );
@@ -34,14 +30,15 @@ const AlertIcon = () => (
     <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
 );
 
-export default function LoginPage() {
+/* ── The actual form — wrapped in Suspense because useSearchParams is dynamic ── */
+function LoginForm() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [rememberMe, setRememberMe] = useState(false);
-    const { signIn, loading: authLoading } = useAuth();
+    const { signIn } = useAuth();
     const router = useRouter();
     const searchParams = useSearchParams();
     const nextPath = searchParams.get('next') || '/';
@@ -190,5 +187,21 @@ export default function LoginPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+/* ── Wrapper with Suspense boundary for useSearchParams ── */
+export default function LoginPage() {
+    return (
+        <Suspense fallback={
+            <div className="h-screen flex items-center justify-center bg-slate-950">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 animate-pulse" />
+                    <p className="text-slate-400 text-sm">Loading...</p>
+                </div>
+            </div>
+        }>
+            <LoginForm />
+        </Suspense>
     );
 }
