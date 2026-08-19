@@ -14,7 +14,7 @@ export async function GET(request: Request) {
     // --- Error case: show error on login page ---
     if (error || errorDescription) {
         return NextResponse.redirect(
-            new URL(`/login?error=${encodeURIComponent(errorDescription || error)}`, origin),
+            new URL(`/login?error=${encodeURIComponent(errorDescription || error || 'Authentication failed')}`, origin),
         );
     }
 
@@ -34,10 +34,13 @@ export async function GET(request: Request) {
             auth: { autoRefreshToken: true, persistSession: true },
         });
 
-        const { data: { session, error: sessionError } } = await supabase.auth.exchangeCodeForSession(code);
+        await supabase.auth.exchangeCodeForSession(code);
 
-        if (sessionError || !session) {
-            console.error('[auth/callback] exchangeCodeForSession failed:', sessionError?.message);
+        // Verify the session was created (exchangeCodeForSession doesn't always throw)
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (!session) {
+            console.error('[auth/callback] No session after exchangeCodeForSession');
             return NextResponse.redirect(new URL('/login?error=Failed to complete authentication', origin));
         }
 
