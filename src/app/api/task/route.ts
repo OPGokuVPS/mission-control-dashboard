@@ -81,6 +81,32 @@ export async function PATCH(request: Request) {
 
         if (status && validStatuses.includes(status as any)) {
             updatePayload.status = status;
+
+            // ── Auto-set start_time on backlog -> active transition ──
+            if (String(status) === 'active') {
+                // Fetch current status to check if this is a backlog transition
+                const { data: currentData } = await fetch(
+                    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/tasks?select=status,start_time&id=eq.${id}`,
+                    {
+                        headers: {
+                            'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+                            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+                        },
+                    },
+                ).then((r) => r.json());
+
+                const currentStatus = currentData?.[0]?.status;
+                const hasStartTime = currentData?.[0]?.start_time;
+
+                // Only auto-set start_time if transitioning from backlog and no explicit start_time provided
+                if (
+                    currentStatus === 'backlog' &&
+                    !hasStartTime &&
+                    !fields.start_time
+                ) {
+                    updatePayload.start_time = new Date().toISOString();
+                }
+            }
         }
 
         // Merge any other allowed fields

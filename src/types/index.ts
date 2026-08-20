@@ -66,6 +66,64 @@ export interface Task {
     deadline?: string;
     impact_score?: number;
     created_at: string;
+    start_time?: string;
+    end_time?: string;
+    sla_deadline?: string;
+    linked_business_id?: number;
+    created_by?: string;
+    tags?: string[];
+}
+
+// ─── Phase 2 P0: Real-Time Tracking & Audit Types ─────────────────────────
+
+export interface TaskStartResponse extends Task {
+    message?: string;
+}
+
+export interface TaskStopResponse extends Task {
+    duration_ms: number;
+    message?: string;
+}
+
+export interface HeartbeatStatus {
+    success: boolean;
+    task_id: number;
+    last_ping: string;
+    current_status: string;
+    seconds_since_last_ping: number;
+    is_alive: boolean;
+}
+
+export interface StaleTask {
+    task_id: number;
+    title: string;
+    started_at: string;
+    assigned_agent?: string | null;
+    last_ping: string | null;
+    seconds_since_ping?: number;
+    reason: 'timeout' | 'no_heartbeat';
+    warning: string;
+}
+
+export interface HistoryEntry {
+    id: number;
+    task_id: number;
+    field_changed: string;
+    old_value: string | null;
+    new_value: string | null;
+    actor: string;
+    actor_role?: string;
+    created_at: string;
+}
+
+export interface TaskHeartbeat {
+    id: number;
+    task_id: number;
+    last_ping: string;
+    ping_interval_seconds: number;
+    is_alive: boolean;
+    created_at: string;
+    updated_at: string;
 }
 
 export interface Workflow {
