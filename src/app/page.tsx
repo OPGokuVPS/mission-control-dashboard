@@ -43,6 +43,18 @@ export default function Dashboard() {
 
     const triggerRefresh = useCallback(() => setRefreshKey(k => k + 1), []);
 
+    // Keyboard shortcut: Ctrl+/ or Cmd+/ toggles the command interface
+    useEffect(() => {
+        function handleKeyDown(e: KeyboardEvent) {
+            if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+                e.preventDefault();
+                setShowCommand(prev => !prev);
+            }
+        }
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
+
     if (!user) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800">
@@ -88,13 +100,10 @@ export default function Dashboard() {
                             {/* Command Interface toggle */}
                             <button
                                 onClick={() => setShowCommand(!showCommand)}
-                                className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                                    showCommand
-                                        ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                                        : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-                                }`}
+                                title="Toggle Command Interface (Ctrl+/)"
+                                className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors ${showCommand ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
                             >
-                                💻 CLI
+                                💻 CLI <kbd className="text-xs opacity-60 font-mono">⌘/</kbd>
                             </button>
                             {/* desktop user menu */}
                             <div className="hidden sm:flex items-center gap-3">
@@ -115,6 +124,13 @@ export default function Dashboard() {
                     {showMobileMenu && (
                         <div className="sm:hidden pb-3 border-t border-slate-200 dark:border-slate-700 pt-2">
                             <div className="text-sm text-slate-500 mb-2">{user.email}</div>
+                            <button
+                                onClick={() => setShowCommand(!showCommand)}
+                                title="Toggle Command Interface"
+                                className="w-full text-left px-3 py-2 text-sm bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors mb-2"
+                            >
+                                💻 Toggle Command Interface (Ctrl+/)
+                            </button>
                             <button
                                 onClick={() => signOut()}
                                 className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
