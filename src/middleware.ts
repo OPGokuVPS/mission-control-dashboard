@@ -16,13 +16,6 @@ const PUBLIC_PATHS = [
 export function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
-    // Debug header: proves this file is currently deployed
-    if (pathname === '/reset-password' || pathname.startsWith('/reset-password')) {
-        return NextResponse.next({
-            headers: { 'X-Debug-Middleware': 'deploy-check-v1' },
-        });
-    }
-
     // Allow public paths
     if (PUBLIC_PATHS.some(p => pathname.startsWith(p))) {
         return NextResponse.next();
