@@ -11,20 +11,23 @@ import { AgentWorkloadDashboard } from '@/components/AgentWorkloadDashboard';
 import { BusinessImpactPanel } from '@/components/BusinessImpactPanel';
 import { AlertsRisksPanel } from '@/components/AlertsRisksPanel';
 import { CommandInterface } from '@/components/CommandInterface';
+import { CommandOverlay } from '@/components/CommandOverlay';
 import { MemoryVault } from '@/components/MemoryVault';
 import { ExperimentsPanel } from '@/components/ExperimentsPanel';
 import { CostTracking } from '@/components/CostTracking';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { StrategyOverview } from '@/components/StrategyOverview';
 import { CardSkeleton } from '@/components/SkeletonLoader';
+import { AgentPerformanceMetrics } from '@/components/AgentPerformanceMetrics';
 
-type Tab = 'overview' | 'tasks' | 'workflows' | 'activity' | 'insights' | 'alerts' | 'memory' | 'experiments' | 'costs' | 'strategy';
+type Tab = 'overview' | 'tasks' | 'workflows' | 'activity' | 'performance' | 'insights' | 'alerts' | 'memory' | 'experiments' | 'costs' | 'strategy';
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
     { id: 'overview', label: 'Overview', icon: '📊' },
     { id: 'tasks', label: 'Tasks', icon: '✅' },
     { id: 'workflows', label: 'Workflows', icon: '⚙️' },
     { id: 'activity', label: 'Agents', icon: '🤖' },
+    { id: 'performance', label: 'Performance', icon: '📈' },
     { id: 'insights', label: 'Impact', icon: '📈' },
     { id: 'alerts', label: 'Alerts', icon: '🔔' },
     { id: 'memory', label: 'Memory', icon: '🧠' },
@@ -43,10 +46,13 @@ export default function Dashboard() {
 
     const triggerRefresh = useCallback(() => setRefreshKey(k => k + 1), []);
 
-    // Keyboard shortcut: Ctrl+/ or Cmd+/ toggles the command interface
+    // Keyboard shortcuts: Ctrl+/ or Cmd+/ and Ctrl+K or Cmd+K toggle the command interface
     useEffect(() => {
         function handleKeyDown(e: KeyboardEvent) {
-            if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+            const isToggleShortcut =
+                ((e.ctrlKey || e.metaKey) && e.key === '/') ||
+                ((e.ctrlKey || e.metaKey) && e.key === 'k');
+            if (isToggleShortcut) {
                 e.preventDefault();
                 setShowCommand(prev => !prev);
             }
@@ -100,10 +106,15 @@ export default function Dashboard() {
                             {/* Command Interface toggle */}
                             <button
                                 onClick={() => setShowCommand(!showCommand)}
-                                title="Toggle Command Interface (Ctrl+/)"
-                                className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors ${showCommand ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                                title="Toggle Command Interface (Ctrl+K or Ctrl+/)"
+                                className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                                    showCommand
+                                        ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 ring-1 ring-blue-300 dark:ring-blue-700'
+                                        : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                                }`}
                             >
-                                💻 CLI <kbd className="text-xs opacity-60 font-mono">⌘/</kbd>
+                                💻 CLI{' '}
+                                <kbd className="text-xs opacity-60 font-mono">⌘K</kbd>
                             </button>
                             {/* desktop user menu */}
                             <div className="hidden sm:flex items-center gap-3">
@@ -129,7 +140,7 @@ export default function Dashboard() {
                                 title="Toggle Command Interface"
                                 className="w-full text-left px-3 py-2 text-sm bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors mb-2"
                             >
-                                💻 Toggle Command Interface (Ctrl+/)
+                                💻 Toggle Command Interface (⌘K / ⌘/)
                             </button>
                             <button
                                 onClick={() => signOut()}
@@ -137,13 +148,6 @@ export default function Dashboard() {
                             >
                                 Sign Out
                             </button>
-                        </div>
-                    )}
-
-                    {/* Command Interface overlay */}
-                    {showCommand && (
-                        <div className="mb-4">
-                            <CommandInterface onUpdate={triggerRefresh} />
                         </div>
                     )}
                 </div>
@@ -174,6 +178,9 @@ export default function Dashboard() {
                     {renderTab(activeTab, refreshKey, triggerRefresh)}
                 </main>
             </div>
+
+            {/* ===== Command Interface overlay (below sticky header, above content) ===== */}
+            <CommandOverlay show={showCommand} onUpdate={triggerRefresh} />
         </div>
     );
 }
@@ -188,6 +195,8 @@ function renderTab(tab: Tab, refreshKey: number, triggerRefresh: () => void) {
             return <WorkflowTracker />;
         case 'activity':
             return <AgentWorkloadDashboard />;
+        case 'performance':
+            return <AgentPerformanceMetrics />;
         case 'insights':
             return <BusinessImpactPanel />;
         case 'alerts':

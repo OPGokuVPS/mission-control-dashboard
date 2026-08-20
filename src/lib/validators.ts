@@ -48,38 +48,108 @@ export function sanitizeCommand(input: string): string {
     return sanitized.trim();
 }
 
-// ---------- Command Parser ----------
-
-const COMMAND_REGEX = /^(create\s+task:\s*(.+?)|update\s+task\s+(\d+)\s+to\s+(\w+)|list\s+tasks|clear|insights|analyze|help|\?|show\s+context)(\s+.*)?$/i;
+// ---------- Expanded Command Types ----------
 
 export type ParsedCommand =
-    | { type: 'create_task'; params: { title?: string } }
+    | { type: 'create_task'; params: { title?: string; description?: string; priority?: string; agent?: string } }
     | { type: 'update_task_status'; params: { id?: number; status?: string } }
     | { type: 'list_tasks' }
+    | { type: 'list_workflows' }
+    | { type: 'deploy_to'; params: { target?: 'staging' | 'production' } }
+    | { type: 'check_database' }
     | { type: 'clear_output' }
     | { type: 'run_insights' }
     | { type: 'show_context' }
     | { type: 'help' }
     | { type: 'unknown'; error: string };
 
+// ---------- Natural Language Parser ----------
+
+/**
+ * Enhanced parser supporting natural-language commands beyond basic regex patterns.
+ * Handles phrases like "Create new task: test this feature", "Show me all active workflows", etc.
+ */
 export function parseCommand(rawInput: string): ParsedCommand {
     const input = sanitizeCommand(rawInput);
+    const lower = input.toLowerCase().trim();
 
-    if (/^(create\s+task)/i.test(input)) {
-        const match = input.match(/^create\s+task:\s*(.+)$/i);
-        return match ? { type: 'create_task', params: { title: match[1].trim() || undefined } } : { type: 'unknown', error: 'Invalid create task format. Use "create task: <title>"' };
+    // --- help ---
+    if (/^(help|\?|\[?[hH]elp\]?)$/.test(lower)) {
+        return { type: 'help' };
     }
 
+    // --- clear ---
+    if (/^clear$/i.test(lower)) {
+        return { type: 'clear_output' };
+    }
+
+    // --- create task (several NL variations) ---
+    if (/^(create|add|new|make)\s+task(\s*:)?\s*/i.test(input)) {
+        const match = input.match(/^(?:create|add|new|make)\s+task\s*:\s*(.+)$/i)
+            ?? input.match(/^(?:create|add|new|make)\s+a?\s*task\s+(.+)$/i)
+            ?? input.match(/^task:\s*(.+)$/i);
+        if (match && match[1].trim()) {
+            return { type: 'create_task', params: { title: match[1].trim() } };
+        }
+        return { type: 'unknown', error: 'What should the task be about? Use "create task: <title>".' };
+    }
+
+    // --- update task status ---
     if (/^update\s+task/i.test(input)) {
         const match = input.match(/^update\s+task\s+(\d+)\s+to\s+(\w+)/i);
-        return match ? { type: 'update_task_status', params: { id: Number(match[1]), status: match[2] } } : { type: 'unknown', error: 'Invalid update format. Use "update task <id> to <status>"' };
+        if (match) {
+            return { type: 'update_task_status', params: { id: Number(match[1]), status: match[2] } };
+        }
+        // More flexible: "set task #5 to done" / "change task 3 status to blocked"
+        const altMatch = input.match(/(?:task|#)\s*(\d+)\s+(?:to|as|with|status)\s+(\w+)/i);
+        if (altMatch) {
+            return { type: 'update_task_status', params: { id: Number(altMatch[1]), status: altMatch[2] } };
+        }
+        return { type: 'unknown', error: 'Invalid format. Use "update task <id> to <status>" or "set task #<id> to <status>".' };
     }
 
-    if (/^(list\s+tasks|show\s+tasks|get\s+tasks)/i.test(input)) return { type: 'list_tasks' };
-    if (/^clear$/i.test(input)) return { type: 'clear_output' };
-    if (/^(insights|analyze)/i.test(input)) return { type: 'run_insights' };
-    if (/^show\s+context/i.test(input)) return { type: 'show_context' };
-    if (/^(help|\?$)/i.test(input)) return { type: 'help' };
+    // --- list tasks / show tasks / get tasks ---
+    if (/^(list|show|get|view|fetch|display|read)\s+(all\s+)?tasks?/i.test(input)) {
+        return { type: 'list_tasks' };
+    }
+
+    // --- list workflows / show workflows / what are we working on ---
+    if (/^(list|show|get|view|fetch|display|read|what.*working|give.*me)\s+(all\s+)?workflows?/i.test(input)) {
+        return { type: 'list_workflows' };
+    }
+    if (/^(list|show)\s+(all\s+)?active\s+(workflows?)/i.test(input)) {
+        return { type: 'list_workflows' };
+    }
+
+    // --- deploy ---
+    if (/^(deploy|ship|release|push)\s+to\s+(staging|production|prod)/i.test(input)) {
+        const target = lower.includes('prod') ? 'production' : 'staging';
+        return { type: 'deploy_to', params: { target: target as 'staging' | 'production' } };
+    }
+    if (/^deploy$/i.test(lower)) {
+        return { type: 'deploy_to', params: { target: 'staging' } };
+    }
+    if (/^(deploy|ship)\s+production/i.test(input)) {
+        return { type: 'deploy_to', params: { target: 'production' } };
+    }
+
+    // --- check database / health check ---
+    if (/^(check|health|status)\s*(of|the)?\s*database/i.test(input)) {
+        return { type: 'check_database' };
+    }
+    if (/^(db|database)\s+(status|health|ping)/i.test(input)) {
+        return { type: 'check_database' };
+    }
+
+    // --- insights / analyze ---
+    if (/^(insights|analyze|analysis|report)/i.test(lower)) {
+        return { type: 'run_insights' };
+    }
+
+    // --- show context ---
+    if (/^show\s+context/i.test(input)) {
+        return { type: 'show_context' };
+    }
 
     return { type: 'unknown', error: `Unrecognized command: "${input}". Type "help" for options.` };
 }

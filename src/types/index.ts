@@ -195,3 +195,13 @@ export interface DashboardSummary {
     agents_busy: number;
     cost_today: string;
 }
+
+// --- Re-export performance metric types for convenient access via '@/types' ---
+export type {
+    AgentPerformanceReport,
+    RolePerformanceMetric,
+    RoleQualityBreakdown,
+    ActivityDetailEntry,
+    PerformanceTimeRange,
+    OutcomeQuality,
+} from './performance';

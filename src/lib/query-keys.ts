@@ -62,3 +62,16 @@ export const costs = {
 export const dashboard = {
     summary: ['dashboard', 'summary'] as const,
 };
+
+// --- agentPerformance.metrics(range) ---
+export const agentPerformance = {
+    metrics: (range?: PerformanceRangeParams | null) =>
+        range && (range.startDate || range.endDate)
+            ? ['agent_performance', 'metrics', { ...range }] as const
+            : ['agent_performance', 'metrics'] as const,
+};
+
+interface PerformanceRangeParams {
+    startDate: string | null;
+    endDate: string | null;
+}
