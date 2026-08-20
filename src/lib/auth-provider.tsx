@@ -2,8 +2,10 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import { createClient as createSupabaseClient } from '@/lib/supabase-browser';
 import type { User } from '@supabase/supabase-js';
+
+const supabase = createSupabaseClient();
 
 interface AuthContextType {
     user: User | null;
@@ -21,7 +23,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const router = useRouter();
 
     useEffect(() => {
-        // Check active session
+        // Check active session (now syncs with cookies via @supabase/ssr)
         supabase.auth.getSession().then(({ data: { session } }) => {
             setUser(session?.user ?? null);
             setLoading(false);
@@ -30,7 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setLoading(false);
         });
 
-        // Listen for auth changes
+        // Listen for auth changes — now persisted to cookies automatically
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             setUser(session?.user ?? null);
             setLoading(false);
