@@ -37,6 +37,7 @@ export default function Dashboard() {
     const [activeTab, setActiveTab] = useState<Tab>('overview');
     const { data: summary, isLoading: summaryLoading } = useDashboardSummary();
     const [showMobileMenu, setShowMobileMenu] = useState(false);
+    const [showCommand, setShowCommand] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
 
     const triggerRefresh = useCallback(() => setRefreshKey(k => k + 1), []);
@@ -83,6 +84,17 @@ export default function Dashboard() {
                             >
                                 {showMobileMenu ? '✕' : '☰'}
                             </button>
+                            {/* Command Interface toggle */}
+                            <button
+                                onClick={() => setShowCommand(!showCommand)}
+                                className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                                    showCommand
+                                        ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                                        : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                                }`}
+                            >
+                                💻 CLI
+                            </button>
                             {/* desktop user menu */}
                             <div className="hidden sm:flex items-center gap-3">
                                 <span className="text-sm text-slate-500 dark:text-slate-400">
@@ -108,6 +120,13 @@ export default function Dashboard() {
                             >
                                 Sign Out
                             </button>
+                        </div>
+                    )}
+
+                    {/* Command Interface overlay */}
+                    {showCommand && (
+                        <div className="mb-4">
+                            <CommandInterface onUpdate={triggerRefresh} />
                         </div>
                     )}
                 </div>
