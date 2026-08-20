@@ -18,7 +18,7 @@ import { CostTracking } from '@/components/CostTracking';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { StrategyOverview } from '@/components/StrategyOverview';
 import { CardSkeleton } from '@/components/SkeletonLoader';
-import { AgentPerformanceMetrics } from '@/components/AgentPerformanceMetrics';
+import { AgentPerformanceMetricsPanel } from '@/components/AgentPerformanceMetricsPanel';
 
 type Tab = 'overview' | 'tasks' | 'workflows' | 'activity' | 'performance' | 'insights' | 'alerts' | 'memory' | 'experiments' | 'costs' | 'strategy';
 
@@ -196,7 +196,7 @@ function renderTab(tab: Tab, refreshKey: number, triggerRefresh: () => void) {
         case 'activity':
             return <AgentWorkloadDashboard />;
         case 'performance':
-            return <AgentPerformanceMetrics />;
+            return <AgentPerformanceMetricsPanel />;
         case 'insights':
             return <BusinessImpactPanel />;
         case 'alerts':

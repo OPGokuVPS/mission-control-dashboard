@@ -4,8 +4,6 @@ import { createClient } from '@supabase/supabase-js';
 /**
  * POST /api/task
  * Auto-create a task record in the dashboard for agent work tracking.
- * This runs server-side and calls the Supabase REST API directly.
- * Uses the anon key — RLS policy must allow anon inserts on tasks table.
  */
 export async function POST(request: Request) {
     try {
@@ -58,6 +56,83 @@ export async function POST(request: Request) {
         return NextResponse.json(data[0], { status: 201 });
     } catch (error: any) {
         console.error('POST /api/task exception:', error);
+        return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
+    }
+}
+
+/**
+ * PATCH /api/task
+ * Update an existing task's status server-side (bypasses RLS restrictions on anon key).
+ */
+export async function PATCH(request: Request) {
+    try {
+        const body = await request.json();
+        const { id, status, ...fields } = body;
+
+        if (!id) {
+            return NextResponse.json(
+                { error: 'Task id is required' },
+                { status: 400 }
+            );
+        }
+
+        const validStatuses = ['backlog', 'active', 'blocked', 'in_review', 'done', 'deprecated'];
+        const updatePayload: Record<string, any> = {};
+
+        if (status && validStatuses.includes(status as any)) {
+            updatePayload.status = status;
+        }
+
+        // Merge any other allowed fields
+        const allowedFields = ['priority', 'assigned_agent', 'owner', 'description'];
+        for (const field of allowedFields) {
+            if (fields[field] !== undefined) {
+                updatePayload[field] = fields[field];
+            }
+        }
+
+        if (Object.keys(updatePayload).length === 0) {
+            return NextResponse.json(
+                { error: 'No valid fields to update' },
+                { status: 400 }
+            );
+        }
+
+        updatePayload.updated_at = new Date().toISOString();
+
+        const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/tasks?id=eq.${id}`;
+
+        const resp = await fetch(url, {
+            method: 'PATCH',
+            headers: {
+                'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+                'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=representation',
+            },
+            body: JSON.stringify(updatePayload),
+        });
+
+        if (!resp.ok) {
+            const errorText = await resp.text();
+            console.error('Supabase update failed:', resp.status, errorText);
+            return NextResponse.json(
+                { error: resp.status === 401 ? 'Authentication required' : errorText },
+                { status: resp.status }
+            );
+        }
+
+        const data = await resp.json();
+        if (!data || data.length === 0) {
+            return NextResponse.json(
+                { error: 'Task not found or no changes applied' },
+                { status: 404 }
+            );
+        }
+
+        return NextResponse.json(data[0], { status: 200 });
+    } catch (error: any) {
+        console.error('PATCH /api/task exception:', error);
         return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
     }
 }
