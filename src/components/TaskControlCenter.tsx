@@ -1,9 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useTasks, useCreateTask, useUpdateTask, useDeleteTask } from '@/hooks/useTasks';
 import type { TaskStatus, PriorityLevel, AgentRole } from '@/types';
 import { CardSkeleton, SkeletonLoader } from '@/components/SkeletonLoader';
+import { FilterPresets, MobileFilterSheet, FAB, ExpandCollapseToggle } from '@/components/MobileFilterSheet';
+
+// Status column order for Kanban board
+const KANBAN_COLUMNS: Array<TaskStatus | 'deprecated'> = ['backlog', 'active', 'blocked', 'in_review', 'done', 'deprecated'];
 
 export function TaskControlCenter({ onUpdate }: { onUpdate: () => void }) {
     const { data: tasks = [], isLoading, error } = useTasks();
@@ -16,6 +20,18 @@ export function TaskControlCenter({ onUpdate }: { onUpdate: () => void }) {
     const [priority, setPriority] = useState<PriorityLevel>('medium');
     const [agent, setAgent] = useState<AgentRole>('backend_engineer');
     const [filterStatus, setFilterStatus] = useState<TaskStatus | 'all'>('all');
+
+    // Preset filter state
+    const [presetFilter, setPresetFilter] = useState<string>('all');
+
+    // Mobile form modal
+    const [mobileFormOpen, setMobileFormOpen] = useState(false);
+
+    // --- Helpers ---
+    const getAgentLabel = (role?: string): string => {
+        const labels: Record<string, string> = AGENT_LABELS;
+        return labels[role ?? ''] ?? role ?? 'Unassigned';
+    };
 
     async function handleCreate(e: React.FormEvent) {
         e.preventDefault();
@@ -46,9 +62,64 @@ export function TaskControlCenter({ onUpdate }: { onUpdate: () => void }) {
         onUpdate();
     }
 
-    const filtered = filterStatus === 'all' ? tasks : tasks.filter(t => t.status === filterStatus);
-    const statuses: Array<TaskStatus | 'all'> = ['all', 'backlog', 'active', 'blocked', 'in_review', 'done'];
+    const statuses: Array<TaskStatus | 'all'> = ['all', 'backlog', 'active', 'blocked', 'in_review', 'done', 'deprecated'];
 
+    // Filter presets options
+    const presetOptions = useMemo(() => {
+        const today = new Date().toISOString().split('T')[0];
+        const myCount = tasks.filter(t => t.status !== 'done').length;
+        const highPriorityCount = tasks.filter(t => t.priority === 'high' || t.priority === 'critical').length;
+        const dueTodayCount = tasks.filter(t => t.deadline?.startsWith(today)).length;
+
+        return [
+            { id: 'all', label: 'All', icon: '🌐', count: tasks.length },
+            { id: 'my-tasks', label: 'My Tasks', icon: '📋', count: myCount },
+            { id: 'high-priority', label: 'High Priority', icon: '⚡', count: highPriorityCount },
+            { id: 'due-today', label: 'Due Today', icon: '⏰', count: dueTodayCount },
+            { id: 'blocking', label: 'Blocked', icon: '🚫', count: tasks.filter(t => t.status === 'blocked').length },
+            { id: 'doing', label: 'In Progress', icon: '🔨', count: tasks.filter(t => t.status === 'active').length },
+        ];
+    }, [tasks]);
+
+    // Apply preset filter to the tasks list
+    const visibleTasks = useMemo(() => {
+        switch (presetFilter) {
+            case 'my-tasks':
+                return tasks.filter(t => t.status !== 'done');
+            case 'high-priority':
+                return tasks.filter(t => t.priority === 'high' || t.priority === 'critical');
+            case 'due-today': {
+                const today = new Date().toISOString().split('T')[0];
+                return tasks.filter(t => t.deadline?.startsWith(today));
+            }
+            case 'blocking':
+                return tasks.filter(t => t.status === 'blocked');
+            case 'doing':
+                return tasks.filter(t => t.status === 'active');
+            default:
+                return tasks;
+        }
+    }, [presetFilter, tasks]);
+
+    const filtered = filterStatus === 'all' ? visibleTasks : visibleTasks.filter(t => t.status === filterStatus);
+
+    // Group by status for Kanban view
+    const groupedTasks = useMemo(() => {
+        const groups: Record<string, typeof tasks> = {};
+        for (const col of KANBAN_COLUMNS) {
+            groups[col] = [];
+        }
+        filtered.forEach(task => {
+            if (groups[task.status]) {
+                groups[task.status].push(task);
+            } else {
+                groups[task.status] = [task];
+            }
+        });
+        return groups;
+    }, [filtered]);
+
+    // --- Error / Loading states ---
     if (error) {
         return (
             <div className="text-center py-12">
@@ -68,42 +139,66 @@ export function TaskControlCenter({ onUpdate }: { onUpdate: () => void }) {
 
     return (
         <div className="space-y-4">
-            {/* Header */}
+            {/* ===== Header with FAB (desktop button + mobile FAB below) ===== */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">✅ Task Control Center</h2>
-                <button
-                    onClick={() => setShowForm(!showForm)}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors w-full sm:w-auto"
-                >
-                    {showForm ? '\u2715 Cancel' : '+ New Task'}
-                </button>
-            </div>
+                <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">✅ Task Control Center</h2>
 
-            {/* Filter tabs */}
-            <div className="flex gap-2 overflow-x-auto pb-2">
-                {statuses.map(status => (
+                {/* Desktop action buttons — hidden on mobile */}
+                <div className="hidden sm:flex items-center gap-2 w-full sm:w-auto">
                     <button
-                        key={status}
-                        onClick={() => setFilterStatus(status)}
-                        className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-                            filterStatus === status
-                                ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
-                                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border hover:border-slate-400'
-                        }`}
+                        onClick={() => setShowForm(!showForm)}
+                        className={`
+                            touch-target px-4 py-2 rounded-lg text-sm font-medium transition-colors
+                            ${showForm
+                                ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/50'
+                                : 'bg-blue-600 hover:bg-blue-700 text-white'
+                            }
+                        `}
                     >
-                        {status.charAt(0).toUpperCase() + status.slice(1)} ({tasks.filter(t => status === 'all' || t.status === status).length})
+                        {showForm ? '\u2715 Cancel' : '+ New Task'}
                     </button>
-                ))}
+                </div>
             </div>
 
-            {/* Create form */}
+            {/* ===== Filter Presets Bar (horizontal scroll chips) ===== */}
+            <FilterPresets
+                presets={presetOptions}
+                activePreset={presetFilter}
+                onSelect={(id) => setPresetFilter(id)}
+            />
+
+            {/* ===== Status Tabs (below preset chips) ===== */}
+            <div className="flex gap-1 sm:gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                {statuses.map(status => {
+                    const count = tasks.filter(t => status === 'all' || t.status === status).length;
+                    return (
+                        <button
+                            key={status}
+                            onClick={() => setFilterStatus(status)}
+                            className={`
+                                touch-target px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap shrink-0
+                                transition-colors
+                                ${filterStatus === status
+                                    ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+                                    : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border hover:border-slate-400'
+                                }
+                            `}
+                        >
+                            {status.charAt(0).toUpperCase() + status.slice(1)} ({count})
+                        </button>
+                    );
+                })}
+            </div>
+
+            {/* ===== Create Form (Desktop inline, Mobile bottom sheet) ===== */}
+            {/* Desktop inline form */}
             {showForm && (
-                <form onSubmit={handleCreate} className="bg-white dark:bg-slate-800 border rounded-xl p-4 space-y-3">
+                <form onSubmit={handleCreate} className="hidden sm:block bg-white dark:bg-slate-800 border rounded-xl p-4 space-y-3">
                     <input
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
                         placeholder="Task title (required)"
-                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                        className="touch-target w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                         autoFocus
                     />
                     <textarea
@@ -117,7 +212,7 @@ export function TaskControlCenter({ onUpdate }: { onUpdate: () => void }) {
                         <select
                             value={priority}
                             onChange={(e) => setPriority(e.target.value as PriorityLevel)}
-                            className="px-3 py-2 border rounded-lg text-sm"
+                            className="touch-target px-3 py-2 border rounded-lg text-sm min-w-[120px]"
                         >
                             <option value="critical">Critical</option>
                             <option value="high">High</option>
@@ -127,7 +222,7 @@ export function TaskControlCenter({ onUpdate }: { onUpdate: () => void }) {
                         <select
                             value={agent}
                             onChange={(e) => setAgent(e.target.value as AgentRole)}
-                            className="px-3 py-2 border rounded-lg text-sm"
+                            className="touch-target px-3 py-2 border rounded-lg text-sm min-w-[140px]"
                         >
                             {Object.entries(AGENT_LABELS).map(([key, label]) => (
                                 <option key={key} value={key}>{label}</option>
@@ -137,22 +232,96 @@ export function TaskControlCenter({ onUpdate }: { onUpdate: () => void }) {
                     <button
                         type="submit"
                         disabled={!title.trim() || createTask.isPending}
-                        className="w-full sm:w-auto px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg font-medium transition-colors"
+                        className="touch-target w-full sm:w-auto px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg font-medium transition-colors"
                     >
                         {createTask.isPending ? 'Creating...' : 'Create Task'}
                     </button>
                 </form>
             )}
 
-            {/* Empty state */}
+            {/* Mobile create form bottom-sheet */}
+            <MobileFilterSheet isOpen={mobileFormOpen} onClose={() => setMobileFormOpen(false)}>
+                <form onSubmit={handleCreate} className="space-y-4 py-2">
+                    <h3 className="font-semibold text-slate-900 dark:text-white text-base">New Task</h3>
+                    <input
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        placeholder="Task title (required)"
+                        className="touch-target w-full px-3 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-base"
+                        autoFocus
+                    />
+                    <textarea
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder="Description (optional)"
+                        rows={3}
+                        className="w-full px-3 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-y text-base"
+                    />
+                    <div className="space-y-3">
+                        <div>
+                            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Priority</label>
+                            <div className="grid grid-cols-2 gap-2">
+                                {(['critical', 'high', 'medium', 'low'] as PriorityLevel[]).map(p => (
+                                    <button
+                                        key={p}
+                                        type="button"
+                                        onClick={() => setPriority(p)}
+                                        className={`
+                                            touch-target px-3 py-2.5 rounded-lg text-sm font-medium text-center
+                                            transition-colors
+                                            ${priority === p
+                                                ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+                                                : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                                            }
+                                        `}
+                                    >
+                                        {p.charAt(0).toUpperCase() + p.slice(1)}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Assign To</label>
+                            <div className="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto">
+                                {Object.entries(AGENT_LABELS).map(([key, label]) => (
+                                    <button
+                                        key={key}
+                                        type="button"
+                                        onClick={() => setAgent(key as AgentRole)}
+                                        className={`
+                                            touch-target px-2.5 py-2 rounded-lg text-xs font-medium text-left
+                                            transition-colors
+                                            ${agent === key
+                                                ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+                                                : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                                            }
+                                        `}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                    <button
+                        type="submit"
+                        disabled={!title.trim() || createTask.isPending}
+                        className="touch-target w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg font-medium text-base"
+                    >
+                        {createTask.isPending ? 'Creating...' : 'Create Task'}
+                    </button>
+                </form>
+            </MobileFilterSheet>
+
+            {/* ===== Empty State ===== */}
             {filtered.length === 0 && (
                 <div className="text-center py-12 text-slate-400">
                     {tasks.length === 0 ? 'No tasks yet. Create one to get started!' : `No ${filterStatus} tasks.`}
                 </div>
             )}
 
-            {/* Tasks grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+            {/* ===== Desktop View: Grid Layout ===== */}
+            <div className="hidden md:grid md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
                 {filtered.map(task => (
                     <TaskCard
                         key={task.id}
@@ -162,10 +331,73 @@ export function TaskControlCenter({ onUpdate }: { onUpdate: () => void }) {
                     />
                 ))}
             </div>
+
+            {/* ===== Mobile View: Horizontal Scroll Kanban ===== */}
+            <div className="md:hidden">
+                <div className="kanban-scroll-container flex gap-3 overflow-x-auto pb-4 px-1 snap-x snap-mandatory">
+                    {KANBAN_COLUMNS.map(col => {
+                        const colTasks = groupedTasks[col] || [];
+                        const colLabel = col.charAt(0).toUpperCase() + col.slice(1);
+                        const isDone = col === 'done';
+                        return (
+                            <div
+                                key={col}
+                                className={`snap-start shrink-0 w-[280px] sm:w-[300px]`}
+                            >
+                                {/* Column header */}
+                                <div className={`
+                                    sticky top-0 z-10 mb-2
+                                    px-3 py-2 rounded-t-xl
+                                    flex items-center justify-between
+                                    bg-gradient-to-r border-t border-x border-transparent
+                                    ${isDone
+                                        ? 'from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-green-200 dark:border-green-800'
+                                        : 'from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-800 border-slate-200 dark:border-slate-700'
+                                    }
+                                `}>
+                                    <span className={`
+                                        text-sm font-semibold capitalize
+                                        ${isDone ? 'text-green-700 dark:text-green-300' : 'text-slate-700 dark:text-slate-300'}
+                                    `}>
+                                        {colLabel}
+                                    </span>
+                                    <span className={`
+                                        text-xs font-bold px-2 py-0.5 rounded-full
+                                        ${isDone
+                                            ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300'
+                                            : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
+                                        }
+                                    `}>
+                                        {colTasks.length}
+                                    </span>
+                                </div>
+
+                                {/* Column tasks */}
+                                <div className={`
+                                    space-y-2 pb-4 pt-2
+                                    ${isDone ? '' : 'border-l-2 border-dashed border-slate-200 dark:border-slate-700 ml-3'}
+                                `}>
+                                    {colTasks.map(task => (
+                                        <KanbanCardMobile
+                                            key={task.id}
+                                            task={task}
+                                            onStatusChange={handleStatusChange}
+                                            onDelete={handleDelete}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
         </div>
     );
 }
 
+// ============================
+// Desktop Task Card
+// ============================
 function TaskCard({ task, onStatusChange, onDelete }: {
     task: any;
     onStatusChange: (id: number, status: TaskStatus) => Promise<void>;
@@ -180,11 +412,9 @@ function TaskCard({ task, onStatusChange, onDelete }: {
                 <h3 className={`font-semibold text-slate-900 dark:text-white ${isDone ? 'line-through' : ''}`}>
                     {task.title}
                 </h3>
-                <div className="flex items-center gap-1 shrink-0">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${PRIORITY_COLORS[task.priority]}`}>
-                        {task.priority}
-                    </span>
-                </div>
+                <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-medium ${PRIORITY_COLORS[task.priority]}`}>
+                    {task.priority}
+                </span>
             </div>
 
             {task.description && (
@@ -193,10 +423,16 @@ function TaskCard({ task, onStatusChange, onDelete }: {
 
             <div className="flex flex-wrap items-center gap-2 mb-3 text-xs">
                 <span className="bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-md">
-                    {AGENT_LABELS[task.assigned_agent ?? ""] ?? task.assigned_agent ?? "Unassigned"}
+                    {getAgentLabel(task.assigned_agent)}
                 </span>
                 <span className="text-slate-400">|</span>
                 <span className="text-slate-500 dark:text-slate-400">Impact: {Math.round(task.impact_score)}</span>
+                {task.deadline && (
+                    <>
+                        <span className="text-slate-400">|</span>
+                        <span className="text-slate-500 dark:text-slate-400">Due: {new Date(task.deadline).toLocaleDateString()}</span>
+                    </>
+                )}
             </div>
 
             {/* Status transitions */}
@@ -227,8 +463,80 @@ function TaskCard({ task, onStatusChange, onDelete }: {
     );
 }
 
+// ============================
+// Mobile Kanban Card
+// ============================
+function KanbanCardMobile({ task, onStatusChange, onDelete }: {
+    task: any;
+    onStatusChange: (id: number, status: TaskStatus) => Promise<void>;
+    onDelete: (id: number) => Promise<void>;
+}) {
+    const possibleTransitions = STATUS_FLOW[task.status];
+    const isDone = task.status === 'done';
 
-// Status transition map
+    return (
+        <div className={`
+            bg-white dark:bg-slate-800 border rounded-xl p-3 shadow-sm
+            transition-all active:scale-[0.98] select-none
+            ${isDone ? 'opacity-60' : ''}
+        `}>
+            {/* Title + Priority */}
+            <div className="flex items-start justify-between gap-2 mb-2">
+                <h4 className={`font-semibold text-sm text-slate-900 dark:text-white leading-snug flex-1 ${isDone ? 'line-through' : ''}`}>
+                    {task.title}
+                </h4>
+                <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-medium ${PRIORITY_COLORS[task.priority]}`}>
+                    {task.priority}
+                </span>
+            </div>
+
+            {/* Description */}
+            {task.description && (
+                <p className="text-xs text-slate-600 dark:text-slate-400 mb-2 line-clamp-2">{task.description}</p>
+            )}
+
+            {/* Meta row */}
+            <div className="flex flex-wrap items-center gap-1.5 mb-2 text-[10px]">
+                <span className="bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded">
+                    {getAgentLabel(task.assigned_agent)}
+                </span>
+                {task.impact_score != null && (
+                    <>
+                        <span className="text-slate-400">·</span>
+                        <span className="text-slate-500 dark:text-slate-400">I: {Math.round(task.impact_score)}</span>
+                    </>
+                )}
+            </div>
+
+            {/* Quick status actions — touch-friendly mini buttons */}
+            <div className="flex flex-wrap gap-1">
+                {possibleTransitions.map(newStatus => (
+                    <button
+                        key={newStatus}
+                        onClick={() => onStatusChange(task.id, newStatus as TaskStatus)}
+                        className="touch-target px-2 py-1.5 text-[10px] font-semibold bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors capitalize"
+                    >
+                        → {newStatus.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                    </button>
+                ))}
+            </div>
+
+            {/* Delete */}
+            {!isDone && (
+                <button
+                    onClick={() => onDelete(task.id)}
+                    className="mt-1.5 text-[10px] text-red-400 hover:text-red-600 transition-colors w-full text-left py-1"
+                >
+                    🗑 Delete
+                </button>
+            )}
+        </div>
+    );
+}
+
+// ============================
+// Shared constants & helpers
+// ============================
 const STATUS_FLOW: Record<string, string[]> = {
     backlog: ['active', 'blocked', 'deprecated'],
     active: ['in_review'],
@@ -259,3 +567,6 @@ const AGENT_LABELS: Record<string, string> = {
     support_and_monitoring: '🚟 Support',
 };
 
+function getAgentLabel(role?: string): string {
+    return AGENT_LABELS[role ?? ''] ?? role ?? 'Unassigned';
+}

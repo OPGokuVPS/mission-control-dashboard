@@ -178,4 +178,149 @@ button, input, select, textarea {
 .btn-shimmer:hover::after {
     transform: translateX(100%) translateY(100%);
 }
+/* ===== Mobile Responsive Enhancements ===== */
+
+/* Safe area insets for notched devices (iPhone X+) */
+@supports (padding: max(0px)) {
+    body {
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+    }
+}
+
+/* Horizontal scroll container for Kanban board on mobile */
+.kanban-scroll-container {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+}
+
+.kanban-scroll-container::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
+}
+
+/* Touch-friendly tap targets — minimum 44x44px per iOS HIG */
+.touch-target {
+    min-height: 44px;
+    min-width: 44px;
+}
+
+/* Filter chip preset bar horizontal scroll */
+.filter-chips-scroll {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    overscroll-behavior-x: contain;
+}
+
+.filter-chips-scroll::-webkit-scrollbar {
+    display: none;
+}
+
+/* Mobile filter bottom sheet transitions */
+.mobile-sheet-enter {
+    transform: translateY(100%);
+    opacity: 0;
+}
+
+.mobile-sheet-active {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+.mobile-sheet-overlay {
+    transition: opacity 250ms ease;
+}
+
+.mobile-sheet-panel {
+    transition: transform 300ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* FAB entrance animation */
+@keyframes fabSlideUp {
+    from {
+        transform: translateY(80px) scale(0.8);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+}
+
+.fab-animate {
+    animation: fabSlideUp 300ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+/* Smooth scrollbar hide utility */
+.scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+
+    .fab-animate {
+        animation: none;
+    }
+
+    .mobile-sheet-panel {
+        transition: none;
+    }
+
+    .orb,
+    .grid-bg,
+    [class*="animate-"] {
+        animation: none !important;
+    }
+
+    .kanban-scroll-container {
+        -webkit-overflow-scrolling: auto;
+    }
+}
+
+/* Small mobile optimizations (< 390px viewport width) */
+@media (max-width: 390px) {
+    .compact-labels {
+        font-size: 0.65rem;
+    }
+}
+
+/* Medium mobile (391–767px) */
+@media (min-width: 391px) and (max-width: 767px) {
+    .sm-compact-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+}
+
+/* Hide desktop-only elements on mobile */
+@media (max-width: 639px) {
+    .mobile-hide-desktop {
+        display: none !important;
+    }
+}
+
+/* Show mobile-only elements only below 768px */
+@media (max-width: 767px) {
+    .mobile-show-only {
+        display: block !important;
+    }
+
+    .desktop-show-only {
+        display: none !important;
+    }
+}
+
 /* Force deploy */
