@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/lib/auth-provider';
 import { useDashboardSummary } from '@/hooks/useDashboardSummary';
 import { useFactoryContext } from '@/hooks/useFactoryContext';
@@ -44,21 +44,44 @@ export default function Dashboard() {
     const [showCommand, setShowCommand] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
 
+    // Keep a ref to the latest `showCommand` value so the keyboard
+    // listener (registered once) always reads the current state without
+    // needing to be re-attached on every toggle.
+    const showCommandRef = useRef(showCommand);
+    useEffect(() => {
+        showCommandRef.current = showCommand;
+    }, [showCommand]);
+
     const triggerRefresh = useCallback(() => setRefreshKey(k => k + 1), []);
 
-    // Keyboard shortcuts: Ctrl+/ or Cmd+/ and Ctrl+K or Cmd+K toggle the command interface
+    // Global keyboard shortcuts (capture phase):
+    //   Esc              → close overlay
+    //   Ctrl/Cmd + K     → toggle overlay
+    //   Ctrl/Cmd + /     → toggle overlay
+    // We listen on `document` during the capture phase so the handler
+    // fires *before* any focused element swallows the event — this
+    // means the shortcuts work even when typing inside inputs, selects,
+    // etc.  Only `preventDefault()` for shortcuts we own; OS combos
+    // such as Ctrl+W remain untouched.
     useEffect(() => {
         function handleKeyDown(e: KeyboardEvent) {
-            const isToggleShortcut =
-                ((e.ctrlKey || e.metaKey) && e.key === '/') ||
-                ((e.ctrlKey || e.metaKey) && e.key === 'k');
-            if (isToggleShortcut) {
+            // --- Close with Escape ---
+            if (e.key === 'Escape' && showCommandRef.current) {
                 e.preventDefault();
-                setShowCommand(prev => !prev);
+                setShowCommand(false);
+                return;
             }
+            // --- Toggle with Ctrl/Cmd + K or / ---
+            const mod = e.ctrlKey || e.metaKey;
+            if (!mod) return;
+            if (e.key !== '/' && e.key !== 'k') return;
+            if (e.shiftKey || e.altKey) return;
+            if (e.ctrlKey && e.metaKey) return;
+            e.preventDefault();
+            setShowCommand(prev => !prev);
         }
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
+        document.addEventListener('keydown', handleKeyDown, { capture: true });
+        return () => document.removeEventListener('keydown', handleKeyDown, { capture: true });
     }, []);
 
     if (!user) {
@@ -103,18 +126,38 @@ export default function Dashboard() {
                             >
                                 {showMobileMenu ? '✕' : '☰'}
                             </button>
-                            {/* Command Interface toggle */}
+                            {/* Command Interface toggle — desktop */}
                             <button
                                 onClick={() => setShowCommand(!showCommand)}
                                 title="Toggle Command Interface (Ctrl+K or Ctrl+/)"
-                                className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                                aria-label="Toggle Command Interface"
+                                className={`group flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-all duration-200 ${
                                     showCommand
-                                        ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 ring-1 ring-blue-300 dark:ring-blue-700'
-                                        : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                                        ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 ring-1 ring-blue-300 dark:ring-blue-700 shadow-sm'
+                                        : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/50 hover:text-slate-700 dark:hover:text-slate-300'
                                 }`}
                             >
-                                💻 CLI{' '}
-                                <kbd className="text-xs opacity-60 font-mono">⌘K</kbd>
+                                {/* Terminal icon — rotates slightly on hover */}
+                                <svg
+                                    className={`w-4 h-4 transition-transform duration-200 ${
+                                        showCommand ? 'text-blue-600 dark:text-blue-400' : 'group-hover:scale-110'
+                                    }`}
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                    strokeWidth={2}
+                                >
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l3 3-3 3m5 0h3" />
+                                </svg>
+                                <span className="hidden lg:inline font-medium">CLI</span>
+                                <kbd className="text-[10px] leading-none font-mono px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 opacity-70">⌘K</kbd>
+                                {/* Active indicator dot */}
+                                {showCommand && (
+                                    <span className="relative flex h-2 w-2 shrink-0">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
+                                    </span>
+                                )}
                             </button>
                             {/* desktop user menu */}
                             <div className="hidden sm:flex items-center gap-3">
@@ -138,9 +181,18 @@ export default function Dashboard() {
                             <button
                                 onClick={() => setShowCommand(!showCommand)}
                                 title="Toggle Command Interface"
-                                className="w-full text-left px-3 py-2 text-sm bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors mb-2"
+                                aria-label="Toggle Command Interface"
+                                className={`flex items-center gap-2 w-full text-left px-3 py-2 text-sm rounded-lg transition-colors mb-2 ${
+                                    showCommand
+                                        ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                                        : 'bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                }`}
                             >
-                                💻 Toggle Command Interface (⌘K / ⌘/)
+                                <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l3 3-3 3m5 0h3" />
+                                </svg>
+                                <span>Toggle Command Interface</span>
+                                <kbd className="ml-auto text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-600 text-slate-500 dark:text-slate-400">⌘K</kbd>
                             </button>
                             <button
                                 onClick={() => signOut()}
