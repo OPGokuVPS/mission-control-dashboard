@@ -204,4 +204,5 @@ export type {
     ActivityDetailEntry,
     PerformanceTimeRange,
     OutcomeQuality,
+    ThroughputTrendEntry,
 } from './performance';

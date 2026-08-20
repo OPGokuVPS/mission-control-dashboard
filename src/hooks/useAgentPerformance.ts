@@ -2,18 +2,28 @@ import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import * as QUERY_KEYS from '@/lib/query-keys';
 import type { AgentPerformanceReport, PerformanceTimeRange } from '@/types/performance';
 
-/** Relative time-range presets accepted by the UI. */
-export type TimeRangePreset = '24h' | '7d' | '30d';
+/** Relative time-range presets accepted by the UI. 'custom' means explicit dates via custom range picker. */
+export type TimeRangePreset = '24h' | '7d' | '30d' | 'custom';
 
 /** Default fetch interval (5s). */
 const DEFAULT_POLL_INTERVAL = 5_000;
 
-/** Convert preset to ISO-date range. */
+/** Convert preset to ISO-date range. Throws for 'custom' (handled via explicit date params). */
 function presetToDates(preset: TimeRangePreset): PerformanceTimeRange {
+    if (preset === 'custom') {
+        // Custom dates are passed directly; this branch is never hit when custom is used.
+        // Return last 7 days as a safe fallback.
+        const elapsed = 604_800_000;
+        return {
+            startDate: new Date(Date.now() - elapsed).toISOString(),
+            endDate: new Date().toISOString(),
+        };
+    }
     const ms: Record<TimeRangePreset, number> = {
         '24h': 86_400_000,
         '7d': 604_800_000,
         '30d': 2_592_000_000,
+        'custom': 604_800_000, // fallback — always overridden by explicit dates
     };
     const elapsed = ms[preset];
     return {

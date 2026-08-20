@@ -3,7 +3,13 @@
 import { useState, useMemo } from 'react';
 import { useAgentMetrics } from '@/hooks/useAgentPerformance';
 import { CardSkeleton } from '@/components/SkeletonLoader';
-import type { AgentPerformanceReport, RoleQualityBreakdown, RolePerformanceMetric, ActivityDetailEntry } from '@/types/performance';
+import type {
+    AgentPerformanceReport,
+    RoleQualityBreakdown,
+    RolePerformanceMetric,
+    ActivityDetailEntry,
+    ThroughputTrendEntry,
+} from '@/types/performance';
 import type { TimeRangePreset } from '@/hooks/useAgentPerformance';
 
 // ===========================================================================
@@ -14,6 +20,7 @@ const TIME_RANGE_PRESETS: { label: string; value: TimeRangePreset }[] = [
     { label: 'Last 24h', value: '24h' },
     { label: 'Last 7d', value: '7d' },
     { label: 'Last 30d', value: '30d' },
+    { label: 'Custom', value: 'custom' },
 ];
 
 const ROLE_LABELS: Record<string, string> = {
@@ -118,13 +125,186 @@ function QualityBar({ breakdown }: { breakdown: RoleQualityBreakdown | undefined
     );
 }
 
+/**
+ * Throughput Trend Chart — SVG bar chart with completion rate overlay.
+ * Pure CSS + SVG, no external chart library required.
+ */
+function ThroughputChart({ trends }: { trends: ThroughputTrendEntry[] }) {
+    if (!trends || trends.length === 0) {
+        return (
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 text-center">
+                <p className="text-sm text-slate-400">No throughput data available yet.</p>
+            </div>
+        );
+    }
+
+    // --- Compute layout metrics ---
+    const maxVal = Math.max(...trends.map((t) => t.total_activities), 1);
+    const chartWidth = 800;
+    const chartHeight = 220;
+    const padding = { top: 30, right: 20, bottom: 50, left: 50 };
+    const innerWidth = chartWidth - padding.left - padding.right;
+    const innerHeight = chartHeight - padding.top - padding.bottom;
+
+    // Limit visible bars to avoid crowding (>60 days → sample every Nth day)
+    const MAX_VISIBLE_BARS = 60;
+    let displayTrends = trends;
+    let samplingFactor = 1;
+    if (trends.length > MAX_VISIBLE_BARS) {
+        samplingFactor = Math.ceil(trends.length / MAX_VISIBLE_BARS);
+        displayTrends = trends.filter((_, i) => i % samplingFactor === 0);
+    }
+
+    const barGap = Math.max(1, Math.min(4, innerWidth / displayTrends.length / 6));
+    const barWidth = Math.max(2, (innerWidth - barGap * displayTrends.length) / displayTrends.length);
+
+    // Format short labels
+    function shortDate(dateStr: string): string {
+        const d = new Date(dateStr);
+        return `${d.getMonth() + 1}/${d.getDate()}`;
+    }
+
+    return (
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+            <div className="px-4 py-3 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                <h3 className="font-semibold text-slate-900 dark:text-white text-sm">📊 Throughput Trends</h3>
+                <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
+                    <span className="flex items-center gap-1">
+                        <span className="inline-block w-3 h-3 rounded-sm bg-indigo-500" />
+                        Total Activities
+                    </span>
+                    <span className="flex items-center gap-1">
+                        <span className="inline-block w-3 h-3 rounded-sm bg-emerald-400" />
+                        Completed
+                    </span>
+                    <span className="flex items-center gap-1">
+                        <span className="inline-block w-3 h-[1px] bg-amber-500" />
+                        Completion Rate
+                    </span>
+                </div>
+            </div>
+
+            <div className="overflow-x-auto">
+                <svg
+                    viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+                    className="w-full min-w-[600px]"
+                    style={{ maxHeight: '320px' }}
+                    role="img"
+                    aria-label="Throughput trend chart showing daily activity totals and completion rates"
+                >
+                    {/* Grid lines */}
+                    {[0, 0.25, 0.5, 0.75, 1].map((frac) => {
+                        const y = padding.top + innerHeight * (1 - frac);
+                        return (
+                            <g key={frac}>
+                                <line x1={padding.left} y1={y} x2={chartWidth - padding.right} y2={y}
+                                    stroke="currentColor" className="text-slate-200 dark:text-slate-700" strokeWidth={1} strokeDasharray={frac === 0 ? 'none' : '4,4'} />
+                                <text x={padding.left - 8} y={y + 4} textAnchor="end"
+                                    className="fill-slate-400 text-[10px]" fontSize="10">{Math.round(frac * maxVal)}</text>
+                            </g>
+                        );
+                    })}
+
+                    {/* Bars — total activities (background) */}
+                    {displayTrends.map((trend, i) => {
+                        const x = padding.left + i * (barWidth + barGap);
+                        const barH = (trend.total_activities / maxVal) * innerHeight;
+                        const y = padding.top + innerHeight - barH;
+                        return (
+                            <rect key={trend.date} x={x} y={y} width={barWidth} height={barH}
+                                rx={Math.min(2, barWidth / 2)}
+                                className="fill-indigo-400 dark:fill-indigo-500"
+                                opacity={trend.completed_activities === trend.total_activities ? 0.9 : 0.6}
+                            >
+                                <title>{`${trend.date}: ${trend.total_activities} activities (${trend.completion_rate_pct}% completed)`}</title>
+                            </rect>
+                        );
+                    })}
+
+                    {/* Bars — completed activities (foreground, shorter) */}
+                    {displayTrends.map((trend, i) => {
+                        const completedH = trend.total_activities > 0
+                            ? (trend.completed_activities / trend.total_activities) * ((trend.total_activities / maxVal) * innerHeight)
+                            : 0;
+                        const x = padding.left + i * (barWidth + barGap);
+                        const y = padding.top + innerHeight - completedH;
+                        return (
+                            <rect key={`${trend.date}-done`} x={x} y={y} width={barWidth} height={completedH}
+                                rx={Math.min(2, barWidth / 2)}
+                                className="fill-emerald-400 dark:fill-emerald-500"
+                            >
+                                <title>{`${trend.date}: ${trend.completed_activities} completed`}</title>
+                            </rect>
+                        );
+                    })}
+
+                    /* Line — completion rate (%) */
+                    <polyline
+                        points={displayTrends.map((trend, i) => {
+                            const x = padding.left + i * (barWidth + barGap) + barWidth / 2;
+                            const rateY = padding.top + innerHeight * (1 - trend.completion_rate_pct / 100);
+                            return `${x},${rateY}`;
+                        }).join(' ')}
+                        fill="none"
+                        stroke="#f59e0b"
+                        strokeWidth={2}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                    />
+
+                    {/* X-axis labels */}
+                    {displayTrends.map((trend, i) => {
+                        const x = padding.left + i * (barWidth + barGap) + barWidth / 2;
+                        // Show every 3rd label or first/last
+                        const showLabel = i === 0 || i === displayTrends.length - 1 || i % Math.max(1, Math.floor(displayTrends.length / 10)) === 0;
+                        if (!showLabel) return null;
+                        return (
+                            <text key={`label-${i}`} x={x} y={chartHeight - padding.bottom + 16}
+                                textAnchor="middle" className="fill-slate-400" fontSize="9"
+                                transform={`rotate(-30, ${x}, ${chartHeight - padding.bottom + 16})`}>
+                                {shortDate(trend.date)}
+                            </text>
+                        );
+                    })}
+                </svg>
+            </div>
+        </div>
+    );
+}
+
 // ===========================================================================
 // Main Panel Component
 // ===========================================================================
 
 export function AgentPerformanceMetricsPanel() {
     const [activeTimeRange, setActiveTimeRange] = useState<TimeRangePreset>('7d');
-    const { data, isLoading, error } = useAgentMetrics(activeTimeRange);
+    const [customStartDate, setCustomStartDate] = useState<string>(() => {
+        const d = new Date();
+        d.setDate(d.getDate() - 7);
+        return d.toISOString().slice(0, 10);
+    });
+    const [customEndDate, setCustomEndDate] = useState<string>(() => {
+        return new Date().toISOString().slice(0, 10);
+    });
+
+    // When switching away from custom, reset dates to sensible defaults
+    const handleTimeRangeChange = (value: TimeRangePreset) => {
+        setActiveTimeRange(value);
+        if (value === 'custom') {
+            // Reset to last 7 days as defaults
+            const d = new Date();
+            d.setDate(d.getDate() - 7);
+            setCustomStartDate(d.toISOString().slice(0, 10));
+            setCustomEndDate(new Date().toISOString().slice(0, 10));
+        }
+    };
+
+    // Build effective time-range for the hook when custom is active
+    const customRange = activeTimeRange === 'custom'
+        ? { startDate: `${customStartDate}T00:00:00Z`, endDate: `${customEndDate}T23:59:59Z` }
+        : undefined;
+
+    const { data, isLoading, error } = useAgentMetrics(activeTimeRange !== 'custom' ? activeTimeRange : customRange);
 
     // Memoised quality lookup
     const qualityMap = useMemo(() => {
@@ -190,12 +370,12 @@ export function AgentPerformanceMetricsPanel() {
                         Aggregated from agent_activity · Auto-refreshes every 5s
                     </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     <div className="flex gap-1 bg-slate-100 dark:bg-slate-700 rounded-lg p-1">
                         {TIME_RANGE_PRESETS.map((preset) => (
                             <button
                                 key={preset.value}
-                                onClick={() => setActiveTimeRange(preset.value)}
+                                onClick={() => handleTimeRangeChange(preset.value)}
                                 className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
                                     activeTimeRange === preset.value
                                         ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm'
@@ -206,6 +386,27 @@ export function AgentPerformanceMetricsPanel() {
                             </button>
                         ))}
                     </div>
+                    {activeTimeRange === 'custom' && (
+                        <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-700 rounded-lg px-2 py-1">
+                            <label htmlFor="cp-start" className="text-xs text-slate-500 dark:text-slate-400 hidden sm:inline">From:</label>
+                            <input
+                                id="cp-start"
+                                type="date"
+                                value={customStartDate}
+                                onChange={(e) => setCustomStartDate(e.target.value)}
+                                className="text-xs bg-transparent border border-slate-300 dark:border-slate-600 rounded px-1.5 py-0.5 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-400 dark:focus:ring-blue-500"
+                            />
+                            <span className="text-xs text-slate-400 mx-0.5 hidden sm:inline">→</span>
+                            <label htmlFor="cp-end" className="text-xs text-slate-500 dark:text-slate-400 hidden sm:inline">To:</label>
+                            <input
+                                id="cp-end"
+                                type="date"
+                                value={customEndDate}
+                                onChange={(e) => setCustomEndDate(e.target.value)}
+                                className="text-xs bg-transparent border border-slate-300 dark:border-slate-600 rounded px-1.5 py-0.5 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-400 dark:focus:ring-blue-500"
+                            />
+                        </div>
+                    )}
                     <span className="inline-flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400 ml-2">
                         <span className="inline-block w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
                         Live
@@ -225,6 +426,9 @@ export function AgentPerformanceMetricsPanel() {
                     </span>
                 </div>
             )}
+
+            {/* ═══ Throughput Trend Chart ═══ */}
+            <ThroughputChart trends={data.throughput_trends ?? []} />
 
             {/* ═══ Per-Role Performance Table (Desktop) + Cards (Mobile) ═══ */}
             <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">

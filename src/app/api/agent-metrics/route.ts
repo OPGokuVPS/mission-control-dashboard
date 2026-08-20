@@ -5,6 +5,7 @@ import type {
     RolePerformanceMetric,
     RoleQualityBreakdown,
     ActivityDetailEntry,
+    ThroughputTrendEntry,
 } from '@/types/performance';
 
 // ---------------------------------------------------------------------------
@@ -262,6 +263,54 @@ export async function GET(request: Request) {
             }))
             .filter((a) => a.id !== undefined);
 
+        // =========================================================================
+        // THROUGHPUT TRENDS — daily buckets within the time window
+        // Group activities by UTC midnight, count total vs completed per day
+        // =========================================================================
+
+        // Parse start date and compute the full date range in days
+        const startTimeMs = effectiveStart ? new Date(effectiveStart).getTime() : 0;
+        const endTimeMs = effectiveEnd ? new Date(effectiveEnd).getTime() : Date.now();
+        const totalDays = Math.max(1, Math.ceil((endTimeMs - startTimeMs) / 86_400_000));
+
+        // Bucket activities into daily groups
+        const dailyBuckets: Map<string, { total: number; completed: number }> = new Map();
+
+        for (const entry of activities) {
+            if (!entry.created_at) continue;
+            const entryDate = new Date(entry.created_at);
+            // Floor to UTC midnight
+            const bucketKey = entryDate.toISOString().slice(0, 10); // "YYYY-MM-DD"
+            if (!dailyBuckets.has(bucketKey)) {
+                dailyBuckets.set(bucketKey, { total: 0, completed: 0 });
+            }
+            const bucket = dailyBuckets.get(bucketKey)!;
+            bucket.total++;
+            if (entry.status === 'completed') {
+                bucket.completed++;
+            }
+        }
+
+        // Build ordered array with zero-fill for missing days
+        const throughputTrends: ThroughputTrendEntry[] = [];
+        const startDate = new Date(startTimeMs || Date.now() - 7 * 86_400_000);
+        startDate.setUTCHours(0, 0, 0, 0);
+        const endDateUTC = new Date(endTimeMs);
+        endDateUTC.setUTCHours(0, 0, 0, 0);
+
+        for (let d = new Date(startDate); d <= endDateUTC && throughputTrends.length < totalDays + 2; d.setUTCDate(d.getUTCDate() + 1)) {
+            const key = d.toISOString().slice(0, 10);
+            const data = dailyBuckets.get(key) ?? { total: 0, completed: 0 };
+            throughputTrends.push({
+                date: `${key}T00:00:00Z`,
+                total_activities: data.total,
+                completed_activities: data.completed,
+                completion_rate_pct: data.total > 0
+                    ? Math.round((data.completed / data.total) * 10000) / 100
+                    : 0.0,
+            });
+        }
+
         // --- Summary statistics ---
         const totalRoles = VALID_ROLES.length;
         const activeRoles = metrics.filter((m) => m.total_tasks > 0).length;
@@ -289,6 +338,7 @@ export async function GET(request: Request) {
             metrics,
             quality_breakdown: qualityBreakdown,
             recent_activities: recentActivities,
+            throughput_trends: throughputTrends,
             summary: {
                 total_roles: totalRoles,
                 active_roles: activeRoles,

@@ -50,6 +50,18 @@ export interface ActivityDetailEntry {
     created_at: string;
 }
 
+/** Single point in a throughput trend series. */
+export interface ThroughputTrendEntry {
+    /** ISO-8601 date of this bucket (UTC, midnight). */
+    date: string;
+    /** Total activities recorded during this bucket. */
+    total_activities: number;
+    /** Activities whose status is 'completed' during this bucket. */
+    completed_activities: number;
+    /** Percentage of completed activities in this bucket [0..100]. */
+    completion_rate_pct: number;
+}
+
 /** Time-range filter accepted by the query parameter interface. */
 export interface PerformanceTimeRange {
     /** Inclusive start (ISO-8601 string or Date, e.g. "2025-01-01T00:00:00Z"). */
@@ -66,6 +78,8 @@ export interface AgentPerformanceReport {
     quality_breakdown: RoleQualityBreakdown[];
     /** Recent individual entries for drill-down. */
     recent_activities: ActivityDetailEntry[];
+    /** Daily-throughput trend over the selected time window. */
+    throughput_trends: ThroughputTrendEntry[];
     /** Summary statistics computed from the metrics array. */
     summary: {
         total_roles: number;
