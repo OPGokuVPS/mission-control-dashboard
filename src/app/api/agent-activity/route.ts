@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     try {
         const body = await request.json();
         const {
-            agent_role,          // Column name in DB matches agent_role enum type
+            agent_name,          // Column name in DB: agent_name
             objective,
             actions = [],
             tools_used = [],
@@ -25,16 +25,16 @@ export async function POST(request: Request) {
             status = 'completed',
         } = body;
 
-        if (!agent_role || !objective) {
+        if (!agent_name || !objective) {
             return NextResponse.json(
-                { error: 'agent_role and objective are required' },
+                { error: 'agent_name and objective are required' },
                 { status: 400 }
             );
         }
 
-        if (!VALID_ROLES.includes(agent_role)) {
+        if (!VALID_ROLES.includes(agent_name)) {
             return NextResponse.json(
-                { error: `Invalid agent_role. Must be one of: ${VALID_ROLES.join(', ')}` },
+                { error: `Invalid agent_name. Must be one of: ${VALID_ROLES.join(', ')}` },
                 { status: 400 }
             );
         }
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
         const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/agent_activity?select=*`;
 
         const payload = {
-            agent_role,
+            agent_name,
             objective: objective.trim(),
             actions: Array.isArray(actions) ? actions : [],
             tools_used: Array.isArray(tools_used) ? tools_used : [],
