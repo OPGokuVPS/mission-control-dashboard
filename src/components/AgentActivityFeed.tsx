@@ -32,7 +32,7 @@ export function AgentActivityFeed() {
         <div className="space-y-4">
             <h2 className="text-2xl font-bold text-slate-900 dark:text-white">📡 Agent Activity Feed</h2>
             <div className="space-y-2">
-                {activities.slice(0, 20).map(activity => (
+                {activities.slice(0, 20).map((activity: any) => (
                     <ActivityItem key={activity.id} activity={activity} />
                 ))}
             </div>
@@ -45,8 +45,8 @@ function ActivityItem({ activity }: { activity: any }) {
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 hover:shadow-md transition-shadow">
             <div className="flex items-start justify-between gap-3 mb-2">
                 <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-lg shrink-0">{AGENT_LABELS[activity.agent_name]?.split(' ')[0] || '🤖'}</span>
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{AGENT_LABELS[activity.agent_name] || activity.agent_name}</span>
+                    <span className="text-lg shrink-0">{AGENT_LABELS[activity.agent_role]?.split(' ')[0] || '🤖'}</span>
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{AGENT_LABELS[activity.agent_role] || activity.agent_role}</span>
                     <span className="text-xs px-2 py-0.5 bg-slate-100 dark:bg-slate-700 rounded-full text-slate-500 dark:text-slate-400">{activity.status}</span>
                 </div>
                 <span className="text-xs text-slate-400 shrink-0">{new Date(activity.created_at).toLocaleTimeString()}</span>

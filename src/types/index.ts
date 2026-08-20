@@ -84,7 +84,7 @@ export interface Workflow {
 
 export interface AgentActivity {
     id: number;
-    agent_name: AgentRole;
+    agent_role: AgentRole;
     objective: string;
     actions: string[];
     tools_used?: string[];

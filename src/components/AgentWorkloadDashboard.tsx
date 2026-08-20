@@ -129,12 +129,12 @@ export function AgentWorkloadDashboard() {
                             <div key={activity.id} className="p-3 hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
                                 <div className="flex items-start gap-3">
                                     <div className="w-8 h-8 bg-slate-100 dark:bg-slate-700 rounded-lg flex items-center justify-center shrink-0">
-                                        <span className="text-sm">{AGENT_LABELS[activity.agent_name]?.split(' ')[0]}</span>
+                                        <span className="text-sm">{AGENT_LABELS[activity.agent_role]?.split(' ')[0]}</span>
                                     </div>
                                     <div className="min-w-0 flex-1">
                                         <div className="flex items-center gap-2 text-sm mb-1">
                                             <span className="font-medium text-slate-900 dark:text-white">
-                                                {AGENT_LABELS[activity.agent_name]}
+                                                {AGENT_LABELS[activity.agent_role]}
                                             </span>
                                             <span className="text-xs px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded capitalize">
                                                 {activity.status}

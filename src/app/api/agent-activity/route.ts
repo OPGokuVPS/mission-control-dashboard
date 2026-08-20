@@ -9,13 +9,13 @@ const VALID_ROLES = [
 /**
  * POST /api/agent-activity
  * Logs sub-agent activity into the agent_activity table via Supabase REST API.
- * Called automatically when delegate_task completes.
+ * Uses anon key with permissive RLS policy (added via SQL migration).
  */
 export async function POST(request: Request) {
     try {
         const body = await request.json();
         const {
-            agent_name,
+            agent_role,          // Column name in DB matches agent_role enum type
             objective,
             actions = [],
             tools_used = [],
@@ -25,16 +25,16 @@ export async function POST(request: Request) {
             status = 'completed',
         } = body;
 
-        if (!agent_name || !objective) {
+        if (!agent_role || !objective) {
             return NextResponse.json(
-                { error: 'agent_name and objective are required' },
+                { error: 'agent_role and objective are required' },
                 { status: 400 }
             );
         }
 
-        if (!VALID_ROLES.includes(agent_name)) {
+        if (!VALID_ROLES.includes(agent_role)) {
             return NextResponse.json(
-                { error: `Invalid agent_name. Must be one of: ${VALID_ROLES.join(', ')}` },
+                { error: `Invalid agent_role. Must be one of: ${VALID_ROLES.join(', ')}` },
                 { status: 400 }
             );
         }
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
         const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/agent_activity?select=*`;
 
         const payload = {
-            agent_name,
+            agent_role,
             objective: objective.trim(),
             actions: Array.isArray(actions) ? actions : [],
             tools_used: Array.isArray(tools_used) ? tools_used : [],
@@ -98,7 +98,7 @@ export async function GET(request: Request) {
             'Authorization': `Bearer ${anonKey}`,
         };
 
-        // Get workload summary via tasks table
+        // Get tasks assigned to agents (tasks table has assigned_agent column)
         const tasksResp = await fetch(
             `${baseUrl}/rest/v1/tasks?select=assigned_agent,status&or=(assigned_agent.not.is.null)&limit=500`,
             { headers }
@@ -126,10 +126,10 @@ export async function GET(request: Request) {
             }
         }
 
-        // Get recent activity
+        // Get recent agent activity
         let activityUrl = `${baseUrl}/rest/v1/agent_activity?select=*&order=created_at.desc&limit=${limit}`;
         if (agent) {
-            activityUrl += `&agent_name=eq.${agent}`;
+            activityUrl += `&agent_role=eq.${agent}`;
         }
 
         const activityResp = await fetch(activityUrl, { headers });
