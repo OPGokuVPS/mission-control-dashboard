@@ -196,6 +196,26 @@ export interface DashboardSummary {
     cost_today: string;
 }
 
+// ============================================================
+// Market Data Types (financial monitoring module)
+// ============================================================
+
+export const MARKET_ALERT_THRESHOLDS = ['normal', 'caution', 'warning'] as const;
+export type MarketAlertThreshold = (typeof MARKET_ALERT_THRESHOLDS)[number];
+
+export interface MarketDataPoint {
+    symbol: string;
+    name: string;
+    currentPrice: number;
+    previousClose: number;
+    change: number;
+    changePercent: number;
+    timestamp: string;
+    isDemoMode: boolean;
+    alertLevel: MarketAlertThreshold;
+    alertMessage?: string;
+}
+
 // --- Re-export performance metric types for convenient access via '@/types' ---
 export type {
     AgentPerformanceReport,
@@ -206,3 +226,13 @@ export type {
     OutcomeQuality,
     ThroughputTrendEntry,
 } from './performance';
+
+// --- Re-export deploy status types for convenient access via '@/types' ---
+export type {
+    DeployRecord,
+    DeployStatus,
+    DeployEnvironment,
+    DeployStatusResponse,
+    GithubWebhookPayload,
+    LocalDeployState,
+} from './deploy-status';

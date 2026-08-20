@@ -71,6 +71,11 @@ export const agentPerformance = {
             : ['agent_performance', 'metrics'] as const,
 };
 
+// --- deploy status ---
+export const deploy = Object.assign(['deploy_status'], { all: ['deploy_status'] }) as readonly string[] & {
+    all: readonly string[];
+};
+
 interface PerformanceRangeParams {
     startDate: string | null;
     endDate: string | null;
