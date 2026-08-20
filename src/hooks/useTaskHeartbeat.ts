@@ -30,7 +30,6 @@ export function useTaskHeartbeat(
 
     const intervalIdRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const counterIdRef = useRef<ReturnType<typeof setInterval> | null>(null);
-    const pingFnRef = useRef<(() => void) | undefined>(undefined);
 
     // ── Core ping function ──────────────────────────────────────────────
     const doPing = useCallback(async () => {
@@ -58,11 +57,6 @@ export function useTaskHeartbeat(
             setError(e instanceof Error ? e.message : 'Ping failed');
         }
     }, [taskId]);
-
-    // Keep ref up-to-date so intervals always call the latest closure
-    useEffect(() => {
-        pingFnRef.current = doPing;
-    }, [doPing]);
 
     // ── Start / stop the interval ───────────────────────────────────────
     useEffect(() => {
