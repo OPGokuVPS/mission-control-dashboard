@@ -40,8 +40,10 @@ export async function POST(request: Request) {
 
         const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/agent_activity?select=*`;
 
-        // NOTE: agent_activity DB table has BOTH agent_name AND agent_role columns
-        // Both must be provided with the same value, and result cannot be null.
+        // NOTE: agent_activity DB table requires:
+        // - BOTH agent_name AND agent_role (same value) 
+        // - result must be non-null (NOT NULL constraint)
+        // - outcome_quality must be non-null (NOT NULL constraint)
         const payload = {
             agent_name,
             agent_role: agent_name,          // Required: duplicate of agent_name
@@ -49,7 +51,7 @@ export async function POST(request: Request) {
             actions: Array.isArray(actions) ? actions : [],
             tools_used: Array.isArray(tools_used) ? tools_used : [],
             result: 'Success',               // Required: NOT NULL in DB
-            outcome_quality: outcome_quality || null,
+            outcome_quality: outcome_quality || 'medium',  // Required: NOT NULL in DB
             status: status || 'completed',
         };
 
