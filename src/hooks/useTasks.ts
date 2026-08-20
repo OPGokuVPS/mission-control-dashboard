@@ -1,3 +1,6 @@
+'use client';
+
+import { useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import * as QUERY_KEYS from '@/lib/query-keys';
@@ -8,6 +11,36 @@ import type { Task, TaskStatus, PriorityLevel, AgentRole, Subtask } from '@/type
 // --------------------------------------------------------------------------/
 
 export function useTasks() {
+    const qc = useQueryClient();
+
+    // ── Real-time subscription — merges Postgres changes into cache ──
+    const invalidateRef = useRef(qc.invalidateQueries.bind(qc));
+    useEffect(() => { invalidateRef.current = qc.invalidateQueries.bind(qc); }, [qc]);
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const channel = supabase.channel('tasks-changes');
+        channel
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'tasks' },
+                (payload) => {
+                    const id = (payload.new as Partial<Task>)?.id ??
+                               ((payload.old as Partial<Task>)?.id as number);
+                    if (id != null) {
+                        invalidateRef.current({ queryKey: QUERY_KEYS.tasks.all });
+                        invalidateRef.current({ queryKey: QUERY_KEYS.task.byId(id) });
+                    } else {
+                        invalidateRef.current({ queryKey: QUERY_KEYS.tasks.all });
+                    }
+                },
+            )
+            .subscribe((status) => {
+                if (status === 'SUBSCRIBED') console.debug('[useTasks] real-time sub OK');
+                if (status === 'CHANNEL_ERROR') console.warn('[useTasks] real-time sub error');
+            });
+        return () => { supabase.removeChannel(channel); };
+    }, []);
+
     return useQuery({
         queryKey: QUERY_KEYS.tasks.all,
         queryFn: async () => {

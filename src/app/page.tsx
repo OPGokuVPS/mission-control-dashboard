@@ -19,6 +19,9 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { StrategyOverview } from '@/components/StrategyOverview';
 import { CardSkeleton } from '@/components/SkeletonLoader';
 import { AgentPerformanceMetricsPanel } from '@/components/AgentPerformanceMetricsPanel';
+import { ConnectionStatusIndicator } from '@/components/ConnectionStatusIndicator';
+import { useMarketData } from '@/hooks/useMarketData';
+import { MarketStatusPanel } from '@/components/MarketStatusPanel';
 
 type Tab = 'overview' | 'tasks' | 'workflows' | 'activity' | 'performance' | 'insights' | 'alerts' | 'memory' | 'experiments' | 'costs' | 'strategy';
 
@@ -159,6 +162,10 @@ export default function Dashboard() {
                                     </span>
                                 )}
                             </button>
+                            {/* Real-time connection status */}
+                            <div className="hidden sm:block">
+                                <ConnectionStatusIndicator />
+                            </div>
                             {/* desktop user menu */}
                             <div className="hidden sm:flex items-center gap-3">
                                 <span className="text-sm text-slate-500 dark:text-slate-400">
@@ -269,6 +276,7 @@ function renderTab(tab: Tab, refreshKey: number, triggerRefresh: () => void) {
 function OverviewTab({ refreshKey }: { refreshKey: number }) {
     const { data: summary, isLoading, error } = useDashboardSummary();
     const { data: context } = useFactoryContext();
+    const { data: marketData, isLoading: marketLoading } = useMarketData();
 
     if (error) {
         return (
@@ -307,6 +315,15 @@ function OverviewTab({ refreshKey }: { refreshKey: number }) {
                         </div>
                     </div>
                 ))}
+            </div>
+
+            {/* Market Status */}
+            <div className="grid grid-cols-1 xl:col-span-6">
+                {marketLoading ? (
+                    <CardSkeleton />
+                ) : marketData ? (
+                    <MarketStatusPanel data={marketData} />
+                ) : null}
             </div>
 
             {/* Factory Context Bar */}
