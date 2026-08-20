@@ -15,6 +15,16 @@ export function useDashboardSummary() {
                 supabase.from('cost_tracking').select('total_cost_usd').gte('recorded_at', new Date(Date.now() - 86400000).toISOString()),
             ]);
 
+            // Count agents with active tasks
+            const { data: activeTasks } = await supabase
+                .from('tasks')
+                .select('assigned_agent')
+                .eq('status', 'active')
+                .not('assigned_agent', 'is', null);
+
+            const uniqueBusyAgents = new Set((activeTasks || []).map(t => t.assigned_agent).filter(Boolean));
+            const agentsBusyCount = uniqueBusyAgents.size;
+
             const costToday = costRes.data?.reduce((sum: number, r: any) => sum + (Number(r.total_cost_usd) || 0), 0) ?? 0;
 
             return {
@@ -22,7 +32,7 @@ export function useDashboardSummary() {
                 workflows: workflowsRes.count ?? 0,
                 alerts: alertsRes.count ?? 0,
                 active_experiments: experimentsRes.count ?? 0,
-                agents_busy: 0,
+                agents_busy: agentsBusyCount,
                 cost_today: costToday.toFixed(4),
             };
         },

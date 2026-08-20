@@ -7,6 +7,7 @@ import { useFactoryContext } from '@/hooks/useFactoryContext';
 import { TaskControlCenter } from '@/components/TaskControlCenter';
 import { WorkflowTracker } from '@/components/WorkflowTracker';
 import { AgentActivityFeed } from '@/components/AgentActivityFeed';
+import { AgentWorkloadDashboard } from '@/components/AgentWorkloadDashboard';
 import { BusinessImpactPanel } from '@/components/BusinessImpactPanel';
 import { AlertsRisksPanel } from '@/components/AlertsRisksPanel';
 import { CommandInterface } from '@/components/CommandInterface';
@@ -170,7 +171,7 @@ function renderTab(tab: Tab, refreshKey: number, triggerRefresh: () => void) {
         case 'workflows':
             return <WorkflowTracker />;
         case 'activity':
-            return <AgentActivityFeed />;
+            return <AgentWorkloadDashboard />;
         case 'insights':
             return <BusinessImpactPanel />;
         case 'alerts':
