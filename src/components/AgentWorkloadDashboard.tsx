@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { CardSkeleton } from '@/components/SkeletonLoader';
+import { CardSkeleton, SkeletonLoader } from '@/components/SkeletonLoader';
 
 const AGENT_LABELS: Record<string, string> = {
     strategy: '🎯 Strategy',
@@ -37,7 +37,7 @@ export function AgentWorkloadDashboard() {
     });
 
     if (isLoading) {
-        return <CardSkeleton lines={8} />;
+        return <SkeletonLoader lines={8} className="bg-white dark:bg-slate-800 border rounded-xl p-6" />;
     }
 
     if (error) {
@@ -102,7 +102,7 @@ export function AgentWorkloadDashboard() {
                                     <div key={status} className="flex items-center justify-between">
                                         <span className="capitalize text-slate-500 dark:text-slate-400">{status.replace('_', ' ')}</span>
                                         <span className={`px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[status] || 'bg-slate-100 text-slate-600'}`}>
-                                            {count}
+                                            {String(count)}
                                         </span>
                                     </div>
                                 ))}
@@ -125,7 +125,7 @@ export function AgentWorkloadDashboard() {
                         <h3 className="font-semibold text-slate-900 dark:text-white text-sm">📡 Recent Agent Activity</h3>
                     </div>
                     <div className="max-h-[300px] overflow-y-auto divide-y divide-slate-100 dark:divide-slate-700">
-                        {recentActivity.slice(0, 15).map(activity => (
+                        {recentActivity.slice(0, 15).map((activity: any) => (
                             <div key={activity.id} className="p-3 hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
                                 <div className="flex items-start gap-3">
                                     <div className="w-8 h-8 bg-slate-100 dark:bg-slate-700 rounded-lg flex items-center justify-center shrink-0">
