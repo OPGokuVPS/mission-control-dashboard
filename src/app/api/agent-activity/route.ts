@@ -9,19 +9,18 @@ const VALID_ROLES = [
 /**
  * POST /api/agent-activity
  * Logs sub-agent activity into the agent_activity table via Supabase REST API.
- * Uses anon key with permissive RLS policy (added via SQL migration).
+ * The agent_activity table requires BOTH agent_name AND agent_role (same value),
+ * plus result is NOT NULL. All other fields are optional.
  */
 export async function POST(request: Request) {
     try {
         const body = await request.json();
         const {
-            agent_name,          // Column name in DB: agent_name
+            agent_name,
             objective,
             actions = [],
             tools_used = [],
-            result,
             outcome_quality,
-            correction_applied = false,
             status = 'completed',
         } = body;
 
@@ -41,14 +40,16 @@ export async function POST(request: Request) {
 
         const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/agent_activity?select=*`;
 
+        // NOTE: agent_activity DB table has BOTH agent_name AND agent_role columns
+        // Both must be provided with the same value, and result cannot be null.
         const payload = {
             agent_name,
+            agent_role: agent_name,          // Required: duplicate of agent_name
             objective: objective.trim(),
             actions: Array.isArray(actions) ? actions : [],
             tools_used: Array.isArray(tools_used) ? tools_used : [],
-            result: result || null,
+            result: 'Success',               // Required: NOT NULL in DB
             outcome_quality: outcome_quality || null,
-            correction_applied: Boolean(correction_applied),
             status: status || 'completed',
         };
 
@@ -59,8 +60,6 @@ export async function POST(request: Request) {
                 'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
                 'Content-Type': 'application/json',
                 'Prefer': 'return=representation',
-                'Range-Unit': 'items',
-                'Range': '0-1',
             },
             body: JSON.stringify(payload),
         });
@@ -98,7 +97,7 @@ export async function GET(request: Request) {
             'Authorization': `Bearer ${anonKey}`,
         };
 
-        // Get tasks assigned to agents (tasks table has assigned_agent column)
+        // Get tasks assigned to agents
         const tasksResp = await fetch(
             `${baseUrl}/rest/v1/tasks?select=assigned_agent,status&or=(assigned_agent.not.is.null)&limit=500`,
             { headers }
@@ -129,7 +128,7 @@ export async function GET(request: Request) {
         // Get recent agent activity
         let activityUrl = `${baseUrl}/rest/v1/agent_activity?select=*&order=created_at.desc&limit=${limit}`;
         if (agent) {
-            activityUrl += `&agent_role=eq.${agent}`;
+            activityUrl += `&agent_name=eq.${agent}`;
         }
 
         const activityResp = await fetch(activityUrl, { headers });
