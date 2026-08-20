@@ -5,6 +5,10 @@ import { useTasks, useCreateTask, useUpdateTask, useDeleteTask } from '@/hooks/u
 import type { TaskStatus, PriorityLevel, AgentRole } from '@/types';
 import { CardSkeleton, SkeletonLoader } from '@/components/SkeletonLoader';
 import { FilterPresets, MobileFilterSheet, FAB, ExpandCollapseToggle } from '@/components/MobileFilterSheet';
+import { LiveTimer } from '@/components/LiveTimer';
+import { StaleTaskBanner } from '@/components/StaleTaskBanner';
+import { useTaskStart, useTaskStop } from '@/hooks/useTaskStartStop';
+import { useTaskHeartbeat } from '@/hooks/useTaskHeartbeat';
 
 // Status column order for Kanban board
 const KANBAN_COLUMNS: Array<TaskStatus | 'deprecated'> = ['backlog', 'active', 'blocked', 'in_review', 'done', 'deprecated'];
@@ -159,6 +163,9 @@ export function TaskControlCenter({ onUpdate }: { onUpdate: () => void }) {
                     </button>
                 </div>
             </div>
+
+            {/* ===== Stale Task Banner ===== */}
+            <StaleTaskBanner />
 
             {/* ===== Filter Presets Bar (horizontal scroll chips) ===== */}
             <FilterPresets
@@ -405,6 +412,24 @@ function TaskCard({ task, onStatusChange, onDelete }: {
 }) {
     const possibleTransitions = STATUS_FLOW[task.status];
     const isDone = task.status === 'done';
+    const isActive = task.status === 'active';
+    const hasStartTime = !!task.start_time;
+    const startStop = useTaskStart();
+    const stopTask = useTaskStop();
+    // Only ping when task is active AND has a start time
+    const heartbeat = useTaskHeartbeat(
+        isActive && hasStartTime ? task.id : null,
+        30,
+        isActive && hasStartTime,
+    );
+
+    async function handleStart() {
+        await startStop.mutateAsync({ taskId: task.id });
+    }
+
+    async function handleStop() {
+        await stopTask.mutateAsync({ taskId: task.id });
+    }
 
     return (
         <div className={`bg-white dark:bg-slate-800 border rounded-xl p-4 transition-all ${isDone ? 'opacity-60' : ''}`}>
@@ -434,6 +459,46 @@ function TaskCard({ task, onStatusChange, onDelete }: {
                     </>
                 )}
             </div>
+
+            {/* ===== Real-time tracking controls (desktop only) ===== */}
+            {isActive && (
+                <div className="hidden sm:flex items-center gap-2 mb-3">
+                    {!hasStartTime ? (
+                        <button
+                            onClick={handleStart}
+                            disabled={startStop.isPending}
+                            className="touch-target inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border-2 border-green-500 text-green-600 dark:border-green-400 dark:text-green-400 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/30 transition-colors disabled:opacity-50"
+                        >
+                            ▶ Begin Work
+                        </button>
+                    ) : (
+                        <button
+                            onClick={handleStop}
+                            disabled={stopTask.isPending}
+                            className="touch-target inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border-2 border-orange-400 text-orange-600 dark:border-orange-500 dark:text-orange-400 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/30 transition-colors disabled:opacity-50"
+                        >
+                            ⏸ Stop Work
+                        </button>
+                    )}
+
+                    {/* LiveTimer — visible when task has been started */}
+                    {(hasStartTime || startStop.isPending) && (
+                        <>
+                            <span className="text-xs text-slate-400">⏱</span>
+                            <LiveTimer startTime={hasStartTime ? task.start_time : undefined} />
+                        </>
+                    )}
+
+                    {heartbeat.error && (
+                        <span className="text-xs text-red-500 ml-auto" title={heartbeat.error}>
+                            ●
+                        </span>
+                    )}
+                    {heartbeat.isAlive && (
+                        <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse shrink-0" title="Heartbeat alive" />
+                    )}
+                </div>
+            )}
 
             {/* Status transitions */}
             <div className="flex flex-wrap gap-1.5">
@@ -473,6 +538,24 @@ function KanbanCardMobile({ task, onStatusChange, onDelete }: {
 }) {
     const possibleTransitions = STATUS_FLOW[task.status];
     const isDone = task.status === 'done';
+    const isActive = task.status === 'active';
+    const hasStartTime = !!task.start_time;
+    const startStop = useTaskStart();
+    const stopTask = useTaskStop();
+    // Only ping when task is active AND has a start time
+    const heartbeat = useTaskHeartbeat(
+        isActive && hasStartTime ? task.id : null,
+        30,
+        isActive && hasStartTime,
+    );
+
+    async function handleStart() {
+        await startStop.mutateAsync({ taskId: task.id });
+    }
+
+    async function handleStop() {
+        await stopTask.mutateAsync({ taskId: task.id });
+    }
 
     return (
         <div className={`
@@ -507,6 +590,38 @@ function KanbanCardMobile({ task, onStatusChange, onDelete }: {
                     </>
                 )}
             </div>
+
+            {/* ===== Mobile real-time tracking controls ===== */}
+            {isActive && (
+                <div className="flex items-center gap-1.5 mb-2">
+                    {!hasStartTime ? (
+                        <button
+                            onClick={handleStart}
+                            disabled={startStop.isPending}
+                            className="touch-target flex-1 px-2 py-1 text-[10px] font-semibold border border-green-500 text-green-600 dark:border-green-400 dark:text-green-400 rounded-md hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors disabled:opacity-50"
+                        >
+                            ▶ Begin
+                        </button>
+                    ) : (
+                        <button
+                            onClick={handleStop}
+                            disabled={stopTask.isPending}
+                            className="touch-target flex-1 px-2 py-1 text-[10px] font-semibold border border-orange-400 text-orange-600 dark:border-orange-500 dark:text-orange-400 rounded-md hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors disabled:opacity-50"
+                        >
+                            ⏸ Stop
+                        </button>
+                    )}
+                    {(hasStartTime || startStop.isPending) && (
+                        <LiveTimer startTime={hasStartTime ? task.start_time : undefined} />
+                    )}
+                    {heartbeat.isAlive && (
+                        <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse shrink-0" />
+                    )}
+                    {heartbeat.error && (
+                        <span className="text-red-500 text-[10px]" title={heartbeat.error}>●</span>
+                    )}
+                </div>
+            )}
 
             {/* Quick status actions — touch-friendly mini buttons */}
             <div className="flex flex-wrap gap-1">

@@ -2,6 +2,8 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useState, useMemo } from 'react';
+import { supabase } from '@/lib/supabase';
+import type { Task } from '@/types';
 import { CardSkeleton, SkeletonLoader } from '@/components/SkeletonLoader';
 import { FilterPresets, MobileFilterSheet, FAB, ExpandCollapseToggle } from '@/components/MobileFilterSheet';
 
@@ -26,6 +28,20 @@ const STATUS_COLORS: Record<string, string> = {
     done: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
     blocked: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
 };
+
+/** Format total seconds into a human-readable duration string. */
+function formatDuration(totalSeconds: number): string {
+    if (totalSeconds < 0) return '—';
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    if (minutes > 0) return `${minutes}m ${seconds}s`;
+    return `${seconds}s`;
+}
 
 type FilterKey = 'all' | 'busy' | 'my-tasks' | 'high-priority' | 'due-today';
 
@@ -61,7 +77,71 @@ export function AgentWorkloadDashboard() {
     const recentActivity = data?.recent_activity || [];
     const agentsBusy = data?.agents_busy ?? 0;
 
-    const agentRoles = Object.keys(workload).sort((a, b) => workload[b].total - workload[a].total);
+    // ── Fetch completed tasks to compute avg duration per role ───────────
+    const { data: completedTasks } = useQuery({
+        queryKey: ['agent-durations'],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from('tasks')
+                .select('assigned_agent, start_time, end_time')
+                .eq('status', 'done')
+                .not('end_time', 'is', null);
+            if (error) return [];
+            return (data as (Task & { assigned_agent?: string })[]).filter(
+                t => t.assigned_agent && t.start_time && t.end_time,
+            );
+        },
+        staleTime: 30_000,
+    });
+
+    // Compute average duration in ms per assigned_agent
+    const avgDurationByAgent = useMemo(() => {
+        const map: Record<string, number[]> = {};
+        for (const t of completedTasks ?? []) {
+            const agent = t.assigned_agent!;
+            if (!map[agent]) map[agent] = [];
+            const s = new Date(t.start_time!).getTime();
+            const e = new Date(t.end_time!).getTime();
+            if (!isNaN(s) && !isNaN(e)) {
+                map[agent].push(e - s);
+            }
+        }
+        const result: Record<string, number | 'N/A'> = {};
+        for (const [agent, durations] of Object.entries(map)) {
+            const avgMs = durations.reduce((a, b) => a + b, 0) / durations.length;
+            result[agent] = Math.round(avgMs / 1000); // seconds
+        }
+        return result;
+    }, [completedTasks]);
+
+    /** Human-readable formatted avg duration */
+    function formatAvgDuration(seconds: number | 'N/A'): string {
+        if (seconds === 'N/A') return 'N/A';
+        if (seconds < 60) return `${seconds}s`;
+        if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+        const hrs = Math.floor(seconds / 3600);
+        const mins = Math.floor((seconds % 3600) / 60);
+        return `${hrs}h ${mins}m`;
+    }
+
+    // Duration-based sort key (NaN sorts last)
+    function sortKey(role: string): number {
+        const dur = avgDurationByAgent[role];
+        if (dur === 'N/A' || dur == null) return Infinity;
+        return Number(dur);
+    }
+
+    // Primary sort: by avg duration ascending (fastest first), fallback to total desc
+    const agentRoles = Object.keys(workload)
+        .sort((a, b) => {
+            const da = sortKey(a);
+            const db = sortKey(b);
+            if (da !== Infinity || db !== Infinity) {
+                return da - db; // ascending by avg duration
+            }
+            // Both N/A → fallback to total count descending
+            return workload[b].total - workload[a].total;
+        });
 
     // Filter presets for the quick-select bar
     const presetOptions = useMemo(() => {
@@ -256,6 +336,33 @@ export function AgentWorkloadDashboard() {
 function AgentCard({ role, workload }: { role: string; workload: Record<string, any> }) {
     const w = workload[role];
     const isBusy = w.active > 0;
+    const taskQuery = useQuery({
+        queryKey: ['agent-durations'],
+        queryFn: async () => {
+            const { data } = await supabase
+                .from('tasks')
+                .select('assigned_agent, start_time, end_time')
+                .eq('status', 'done')
+                .not('end_time', 'is', null);
+            if (!data) return [];
+            return data as (Task & { assigned_agent?: string })[];
+        },
+        staleTime: 30_000,
+    });
+    // Compute avg duration in seconds for this specific role
+    const completedTasks = useMemo(() => {
+        if (!taskQuery.data) return [];
+        return taskQuery.data.filter(t => t.assigned_agent === role);
+    }, [taskQuery.data, role]);
+    let avgSeconds: number | 'N/A' = 'N/A';
+    if (completedTasks.length > 0) {
+        const totalMs = completedTasks.reduce((sum, t) => {
+            const s = new Date(t.start_time!).getTime();
+            const e = new Date(t.end_time!).getTime();
+            return sum + (isNaN(s) || isNaN(e) ? 0 : e - s);
+        }, 0);
+        avgSeconds = Math.round(totalMs / completedTasks.length / 1000);
+    }
 
     return (
         <div
@@ -287,10 +394,26 @@ function AgentCard({ role, workload }: { role: string; workload: Record<string, 
                 ))}
             </div>
 
-            {/* Total badge */}
-            <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center">
-                <span className="text-xs text-slate-400">Total</span>
-                <span className="text-lg font-bold text-slate-900 dark:text-white">{w.total}</span>
+            {/* Total + Avg Duration */}
+            <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-700 space-y-1">
+                <div className="flex justify-between items-center">
+                    <span className="text-xs text-slate-400">Total</span>
+                    <span className="text-lg font-bold text-slate-900 dark:text-white">{w.total}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                    <span className="text-xs text-slate-400">Avg Duration</span>
+                    <span className={`text-sm font-mono tabular-nums ${
+                        avgSeconds === 'N/A'
+                            ? 'text-slate-400'
+                            : avgSeconds > 86400
+                                ? 'text-red-500'
+                                : avgSeconds > 28800
+                                    ? 'text-orange-500'
+                                    : 'text-green-600 dark:text-green-400'
+                    }`}>
+                        {avgSeconds === 'N/A' ? 'N/A' : formatDuration(avgSeconds)}
+                    </span>
+                </div>
             </div>
         </div>
     );
@@ -300,6 +423,32 @@ function AgentCard({ role, workload }: { role: string; workload: Record<string, 
 function AgentCardMobile({ role, workload }: { role: string; workload: Record<string, any> }) {
     const w = workload[role];
     const isBusy = w.active > 0;
+    const taskQuery = useQuery({
+        queryKey: ['agent-durations'],
+        queryFn: async () => {
+            const { data } = await supabase
+                .from('tasks')
+                .select('assigned_agent, start_time, end_time')
+                .eq('status', 'done')
+                .not('end_time', 'is', null);
+            if (!data) return [];
+            return data as (Task & { assigned_agent?: string })[];
+        },
+        staleTime: 30_000,
+    });
+    const completedTasks = useMemo(() => {
+        if (!taskQuery.data) return [];
+        return taskQuery.data.filter(t => t.assigned_agent === role);
+    }, [taskQuery.data, role]);
+    let avgSeconds: number | 'N/A' = 'N/A';
+    if (completedTasks.length > 0) {
+        const totalMs = completedTasks.reduce((sum, t) => {
+            const s = new Date(t.start_time!).getTime();
+            const e = new Date(t.end_time!).getTime();
+            return sum + (isNaN(s) || isNaN(e) ? 0 : e - s);
+        }, 0);
+        avgSeconds = Math.round(totalMs / completedTasks.length / 1000);
+    }
 
     return (
         <div
@@ -327,6 +476,18 @@ function AgentCardMobile({ role, workload }: { role: string; workload: Record<st
                         </span>
                     ))}
                 <span className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">{w.total}</span>
+                {/* Avg duration */}
+                <span className={`text-[10px] font-mono tabular-nums px-1.5 py-0.5 rounded ${
+                    avgSeconds === 'N/A'
+                        ? 'text-slate-400 bg-slate-100 dark:bg-slate-700'
+                        : avgSeconds > 86400
+                            ? 'text-red-500 bg-red-50 dark:bg-red-900/20'
+                            : avgSeconds > 28800
+                                ? 'text-orange-500 bg-orange-50 dark:bg-orange-900/20'
+                                : 'text-green-600 bg-green-50 dark:bg-green-900/20'
+                }`}>
+                    {avgSeconds === 'N/A' ? 'N/A' : formatDuration(avgSeconds)}
+                </span>
             </div>
         </div>
     );
