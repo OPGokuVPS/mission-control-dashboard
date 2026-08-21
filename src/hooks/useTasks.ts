@@ -18,29 +18,47 @@ export function useTasks() {
     useEffect(() => { invalidateRef.current = qc.invalidateQueries.bind(qc); }, [qc]);
     useEffect(() => {
         if (typeof window === 'undefined') return;
-        const channel = supabase.channel('tasks-changes');
-        channel
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'tasks' },
-                (payload) => {
-                    const id = (payload.new as Partial<Task>)?.id ??
-                               ((payload.old as Partial<Task>)?.id as number);
-                    if (id != null) {
-                        invalidateRef.current({ queryKey: QUERY_KEYS.tasks.all });
-                        invalidateRef.current({ queryKey: QUERY_KEYS.task.byId(id) });
-                    } else {
-                        invalidateRef.current({ queryKey: QUERY_KEYS.tasks.all });
-                    }
-                },
-            )
-            .subscribe((status) => {
-                if (status === 'SUBSCRIBED') console.debug('[useTasks] real-time sub OK');
-                if (status === 'CHANNEL_ERROR') console.warn('[useTasks] real-time sub error');
-            });
-        return () => { supabase.removeChannel(channel); };
-    }, []);
 
+        const channel = supabase.channel('tasks-changes');
+        let unsubscribed = false;
+
+        // Set up listener BEFORE subscribing to avoid SDK race condition
+        const onTaskChange = channel.on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'tasks' },
+            (payload) => {
+                const id = (payload.new as Partial<Task>)?.id ??
+                           ((payload.old as Partial<Task>)?.id as number);
+                if (id != null) {
+                    invalidateRef.current({ queryKey: QUERY_KEYS.tasks.all });
+                    invalidateRef.current({ queryKey: QUERY_KEYS.task.byId(id) });
+                } else {
+                    invalidateRef.current({ queryKey: QUERY_KEYS.tasks.all });
+                }
+            },
+        );
+
+        // Subscribe with error handling — failure here used to CRASH the entire app
+        try {
+            channel.subscribe((status) => {
+                if (unsubscribed) return;
+                if (status === 'SUBSCRIBED') {
+                    console.debug('[useTasks] real-time sub OK');
+                } else if (status === 'CHANNEL_ERROR') {
+                    console.warn('[useTasks] real-time sub error');
+                }
+            });
+        } catch (err) {
+            // Subscription failed (e.g., CSP blocking WS) — log but DON'T crash
+            console.error('[useTasks] realtime subscription failed:', err);
+        }
+
+        return () => {
+            unsubscribed = true;
+            channel.unsubscribe();
+            supabase.removeChannel(channel);
+        };
+    }, []);
     return useQuery({
         queryKey: QUERY_KEYS.tasks.all,
         queryFn: async () => {

@@ -44,41 +44,51 @@ export function useAgentActivitySubscription() {
         if (typeof window === 'undefined') return;
 
         const channel = supabase.channel('agent-activity-changes');
+        let unsubscribed = false;
 
-        channel
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'agent_activity' },
-                (payload) => {
-                    const type: ChangeType = payload.eventType as ChangeType;
-                    const record = payload.new as PayloadActivity | null;
+        // Set up listener BEFORE subscribing to avoid SDK race condition
+        channel.on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'agent_activity' },
+            (payload) => {
+                const type: ChangeType = payload.eventType as ChangeType;
+                const record = payload.new as PayloadActivity | null;
 
-                    // Re-fetch recent activity so the UI picks up the new
-                    // row immediately without waiting for the next poll cycle.
-                    invalidateRef.current({ queryKey: ['agent_activity'] });
+                // Re-fetch recent activity so the UI picks up the new
+                // row immediately without waiting for the next poll cycle.
+                invalidateRef.current({ queryKey: ['agent_activity'] });
 
-                    if (record && (type === 'INSERT' || type === 'UPDATE')) {
-                        // Also refresh individual-activity queries in case
-                        // some detail view is pinned on this ID.
-                        invalidateRef.current({
-                            predicate: (query) => {
-                                const key = query.queryKey as unknown[];
-                                return typeof key[0] === 'string' &&
-                                       key[0].includes('agent_activity');
-                            },
-                        });
-                    }
-                },
-            )
-            .subscribe((status) => {
+                if (record && (type === 'INSERT' || type === 'UPDATE')) {
+                    // Also refresh individual-activity queries in case
+                    // some detail view is pinned on this ID.
+                    invalidateRef.current({
+                        predicate: (query) => {
+                            const key = query.queryKey as unknown[];
+                            return typeof key[0] === 'string' &&
+                                   key[0].includes('agent_activity');
+                        },
+                    });
+                }
+            },
+        );
+
+        // Subscribe with error handling — failure here used to CRASH the entire app
+        try {
+            channel.subscribe((status) => {
+                if (unsubscribed) return;
                 if (status === 'SUBSCRIBED') {
                     console.debug('[useAgentActivitySubscription] subscribed');
                 } else if (status === 'CHANNEL_ERROR') {
                     console.warn('[useAgentActivitySubscription] channel error');
                 }
             });
+        } catch (err) {
+            console.error('[useAgentActivitySubscription] realtime subscription failed:', err);
+        }
 
         return () => {
+            unsubscribed = true;
+            channel.unsubscribe();
             supabase.removeChannel(channel);
         };
     }, []);
