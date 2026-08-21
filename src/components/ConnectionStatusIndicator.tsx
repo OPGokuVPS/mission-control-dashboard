@@ -11,8 +11,11 @@ import { supabase } from '@/lib/supabase';
 
 export function ConnectionStatusIndicator() {
     const [connected, setConnected] = useState(false); // unknown → false until confirmed
+    const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
+        setMounted(true);
+
         if (typeof window === 'undefined') return;
 
         // A lightweight channel whose sole purpose is connection tracking.
@@ -65,6 +68,16 @@ export function ConnectionStatusIndicator() {
             if (status === 'CHANNEL_ERROR') setConnected(false);
         });
     };
+
+    if (!mounted) {
+        // Server-rendered placeholder: matches initial useState(false) exactly
+        return (
+            <div className="flex items-center gap-1.5 text-[13px]" title="Loading connection status…">
+                <span className="inline-block h-2 w-2 rounded-full bg-slate-400" />
+                <span className="text-slate-500">Checking…</span>
+            </div>
+        );
+    }
 
     return (
         <div className="flex items-center gap-1.5 text-[13px]" title={connected ? 'Real-time sync connected' : 'Disconnected'}>
