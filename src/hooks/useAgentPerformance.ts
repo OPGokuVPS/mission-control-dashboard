@@ -79,7 +79,7 @@ export function useAgentMetricsSuspended(
     const resolved = resolveTimeRange(timeRange);
     const params = buildSearchParams(resolved);
 
-    return useSuspenseQuery({
+    return useQuery({
         queryKey: QUERY_KEYS.agentPerformance.metrics(resolved),
         queryFn: async () => {
             const resp = await fetch(`/api/agent-metrics?${params}`);
