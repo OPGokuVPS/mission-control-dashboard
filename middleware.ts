@@ -26,6 +26,19 @@ export function middleware(request: NextRequest) {
         return NextResponse.next();
     }
 
+    // DEV ONLY: localhost bypass for development testing
+    const host = request.headers.get('host') || '';
+    const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
+    if (isLocalhost && !pathname.startsWith('/api/auth/')) {
+        return NextResponse.next();
+    }
+    
+    // DEV ONLY: fallback to env-based bypass
+    const devBypass = process.env.DEV_MODE === 'true' || process.env.NEXT_PUBLIC_DEV_BYPASS_AUTH === 'true';
+    if (devBypass && !pathname.startsWith('/api/auth/')) {
+        return NextResponse.next();
+    }
+    
     // Check for ANY Supabase auth token cookie.
     // Supabase names them: sb-<project-ref>-auth-access-token etc.
     // We read the raw Cookie header to cover all variants.

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, Fragment } from 'react';
 import { useAuth } from '@/lib/auth-provider';
 import { useDashboardSummary } from '@/hooks/useDashboardSummary';
 import { useFactoryContext } from '@/hooks/useFactoryContext';
@@ -355,7 +355,7 @@ export default function Dashboard() {
                 <div className="hidden sm:block pb-3 mb-4 border-b border-slate-200 dark:border-slate-700 -mx-4 sm:mx-0 px-4 sm:px-0">
                     <nav className="flex flex-wrap items-center gap-x-1 gap-y-1" aria-label="Navigation tabs">
                         {TAB_GROUPS.map((group, gIdx) => (
-                            <>
+                            <Fragment key={`tab-group-${gIdx}`}>
                                 {gIdx > 0 && (
                                     <span className="w-px h-6 bg-slate-200 dark:bg-slate-700 self-center mx-1 hidden sm:block" aria-hidden="true" />
                                 )}
@@ -397,7 +397,7 @@ export default function Dashboard() {
                                         })()}
                                     </button>
                                 ))}
-                            </>
+                            </Fragment>
                         ))}
                     </nav>
                 </div>

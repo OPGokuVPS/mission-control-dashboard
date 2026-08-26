@@ -18,11 +18,18 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-    const [user, setUser] = useState<User | null>(null);
-    const [loading, setLoading] = useState(true);
+    // DEV ONLY: mock user on localhost — set during initial render so SSR and client agree
+    const initialUser = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+        ? { id: 'dev-mock-user', aud: 'authenticated', role: 'authenticated', email: 'dev@localhost', app_metadata: { provider: 'email' }, user_metadata: {}, created_at: new Date().toISOString(), updated_at: new Date().toISOString() } as User | null
+        : null;
+    
+    const [user, setUser] = useState<User | null>(initialUser);
+    const [loading, setLoading] = useState(initialUser !== null);  // false immediately in dev
     const router = useRouter();
 
     useEffect(() => {
+        if (initialUser) return;  // already authenticated in dev mode
+
         // Check active session (now syncs with cookies via @supabase/ssr)
         supabase.auth.getSession().then(({ data: { session } }) => {
             setUser(session?.user ?? null);
