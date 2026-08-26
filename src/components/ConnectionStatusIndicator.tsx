@@ -1,65 +1,68 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 
 // ---------------------------------------------------------------------------
-// ConnectionStatusIndicator — small dot that reflects whether any Supabase
-// realtime channel is currently connected.  Green = live sync is active;
+// ConnectionStatusIndicator — single channel lifecycle managed via ref so
+// we never leak or double-register channels.  Green = live sync is active;
 // red/orange = disconnected (clickable to force reconnect).
 // --------------------------------------------------------------------------/\
 
 export function ConnectionStatusIndicator() {
-    const [connected, setConnected] = useState(false); // unknown → false until confirmed
+    const [connected, setConnected] = useState(false);
     const [mounted, setMounted] = useState(false);
+    const channelRef = useRef<any>(null); // track the single channel instance
+    const mountedRef = useRef(false);
 
     useEffect(() => {
-        setMounted(true);
-
         if (typeof window === 'undefined') return;
+        setMounted(true);
+        mountedRef.current = true;
 
-        // A lightweight channel whose sole purpose is connection tracking.
-        // We only care about SUBSCRIBED / CHANNEL_ERROR state changes.
+        // Create exactly ONE channel for the entire lifetime of this component
         const hb = supabase.channel('connection-heartbeat');
-
         hb.subscribe((status) => {
+            if (!mountedRef.current) return;
             if (status === 'SUBSCRIBED')      setConnected(true);
             if (status === 'CHANNEL_ERROR')   setConnected(false);
         });
+        channelRef.current = hb;
 
-        // Safety timeout: if we haven't received SUBSCRIBED within
-        // 2 seconds something is wrong (no network, no Supabase project, …).
+        // Safety timeout: if we haven't received SUBSCRIBED within 2s, mark offline
         const timeout = setTimeout(() => {
-            setConnected(false);
-            console.warn('[ConnectionStatusIndicator] never received SUBSCRIBED from Supabase');
+            if (mountedRef.current) {
+                setConnected(false);
+                console.warn('[ConnectionStatusIndicator] never received SUBSCRIBED from Supabase');
+            }
         }, 2000);
 
-        // Periodic reconnect every 60 s to catch stale WebSocket frames.
+        // Periodic reconnect every 60 s — remove & recreate the SINGLE channel
         const interval = setInterval(() => {
-            // Re-subscribe forces a fresh handshake.
+            if (!mountedRef.current) return;
             supabase.removeChannel(hb);
             const fresh = supabase.channel('connection-heartbeat');
             fresh.subscribe((status) => {
+                if (!mountedRef.current) return;
                 if (status === 'SUBSCRIBED')      setConnected(true);
                 if (status === 'CHANNEL_ERROR')   setConnected(false);
             });
+            channelRef.current = fresh;
         }, 60_000);
 
         return () => {
+            mountedRef.current = false;
             clearInterval(interval);
             clearTimeout(timeout);
-            supabase.removeChannel(hb);
+            if (channelRef.current) supabase.removeChannel(channelRef.current);
+            channelRef.current = null;
         };
     }, []);
 
-    /**
-     * Force-reconnect by tearing down all existing channels and
-     * creating a brand-new heartbeat.
-     */
+    /** Force-reconnect */
     const handleReconnect = () => {
         setConnected(false);
-        setTimeout(() => setConnected(false), 100);
-        // Quick double-create triggers a fresh subscribe cycle.
+        // Tear down all existing channels, recreate heartbeat
         const channels = supabase.getChannels();
         channels.forEach(ch => supabase.removeChannel(ch));
         const fresh = supabase.channel('connection-heartbeat');
@@ -67,10 +70,10 @@ export function ConnectionStatusIndicator() {
             if (status === 'SUBSCRIBED') setConnected(true);
             if (status === 'CHANNEL_ERROR') setConnected(false);
         });
+        channelRef.current = fresh;
     };
 
     if (!mounted) {
-        // Server-rendered placeholder: matches initial useState(false) exactly
         return (
             <div className="flex items-center gap-1.5 text-[13px]" title="Loading connection status…">
                 <span className="inline-block h-2 w-2 rounded-full bg-slate-400" />

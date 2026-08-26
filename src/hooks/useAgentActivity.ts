@@ -8,26 +8,33 @@ import type { AgentActivity } from '@/types';
 
 export function useAgentActivity(limit = 50) {
     const qc = useQueryClient();
-
-    // ── Real-time subscription — pushes new activity into cache ──
     const invalidateRef = useRef(qc.invalidateQueries.bind(qc));
     useEffect(() => { invalidateRef.current = qc.invalidateQueries.bind(qc); }, [qc]);
+
+    // ── Real-time subscription — pushes new activity into cache ──
     useEffect(() => {
         if (typeof window === 'undefined') return;
         const channel = supabase.channel('agent-activity-changes');
-        channel
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'agent_activity' },
-                (_payload) => {
-                    // Re-fetch recent activity so the feed stays current.
-                    invalidateRef.current({ queryKey: ['agent_activity'] });
-                },
-            )
-            .subscribe((status) => {
+
+        // Set up listener BEFORE subscribing
+        channel.on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'agent_activity' },
+            (_payload) => {
+                invalidateRef.current({ queryKey: ['agent_activity'] });
+            },
+        );
+
+        // Subscribe with error handling
+        try {
+            channel.subscribe((status) => {
                 if (status === 'SUBSCRIBED') console.debug('[useAgentActivity] real-time sub OK');
                 if (status === 'CHANNEL_ERROR') console.warn('[useAgentActivity] real-time sub error');
             });
+        } catch (err) {
+            console.error('[useAgentActivity] realtime subscription failed:', err);
+        }
+
         return () => { supabase.removeChannel(channel); };
     }, []);
 
@@ -48,6 +55,5 @@ export function useAgentActivity(limit = 50) {
 }
 
 export function useRecordActivity() {
-    // Placeholder — actual recording will be done by agent system
     return { mutateAsync: async (_data: Partial<AgentActivity>) => { return _data; } };
 }
