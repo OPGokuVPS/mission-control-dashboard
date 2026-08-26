@@ -270,9 +270,9 @@ export default function Dashboard() {
             {showDrawer && (
                 <div className="fixed inset-0 z-50">
                     {/* Backdrop */}
-                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowDrawer(false)} />
                     {/* Drawer panel — slides in from left */}
-                    <nav className="absolute inset-y-0 left-0 w-72 max-w-[85vw] bg-white dark:bg-slate-800 shadow-2xl overflow-y-auto" role="navigation" aria-label="Navigation menu">
+                    <nav className="absolute inset-y-0 left-0 w-72 max-w-[85vw] bg-white dark:bg-slate-800 shadow-2xl overflow-y-auto z-10" role="navigation" aria-label="Navigation menu">
                         {/* Drawer header */}
                         <div className="sticky top-0 z-10 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex items-center justify-between">
                             <span className="font-semibold text-slate-900 dark:text-white text-sm uppercase tracking-wider">Navigate</span>
@@ -300,7 +300,7 @@ export default function Dashboard() {
                                         <button
                                             key={tab.id}
                                             onClick={() => { setActiveTab(tab.id); setShowDrawer(false); }}
-                                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all duration-150 relative ${
+                                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all duration-150 ${
                                                 activeTab === tab.id
                                                     ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm'
                                                     : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50'
