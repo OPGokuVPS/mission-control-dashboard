@@ -30,8 +30,6 @@ interface TabDef {
     label: string;
     icon: string;
     description: string;
-    /** True when the tab has live/realtime subscriptions (shows a pulsing dot). */
-    live?: boolean;
 }
 
 // Nav groups: each sub-array is separated by a visual divider
@@ -39,13 +37,13 @@ const TAB_GROUPS: TabDef[][] = [
     // ── Operations ────────────────────────────────
     [
         { id: 'overview', label: 'Dashboard', icon: '🏠', description: 'Key metrics at a glance' },
-        { id: 'tasks', label: 'Tasks', icon: '✅', description: 'Create, track, and manage tasks', live: true },
-        { id: 'workflows', label: 'Workflows', icon: '⚙️', description: 'Automated workflow pipelines', live: true },
+        { id: 'tasks', label: 'Tasks', icon: '✅', description: 'Create, track, and manage tasks' },
+        { id: 'workflows', label: 'Workflows', icon: '⚙️', description: 'Automated workflow pipelines' },
     ],
     // ── Agents ────────────────────────────────────
     [
-        { id: 'activity', label: 'Agents', icon: '🤖', description: 'Agent workload & activity feed', live: true },
-        { id: 'performance', label: 'Metrics', icon: '📉', description: 'Agent performance KPIs & trends', live: true },
+        { id: 'activity', label: 'Agents', icon: '🤖', description: 'Agent workload & activity feed' },
+        { id: 'performance', label: 'Metrics', icon: '📉', description: 'Agent performance KPIs & trends' },
     ],
     // ── Analytics ─────────────────────────────────
     [
@@ -54,7 +52,7 @@ const TAB_GROUPS: TabDef[][] = [
     ],
     // ── System ────────────────────────────────────
     [
-        { id: 'alerts', label: 'Alerts', icon: '🔔', description: 'Active alerts & risks', live: true },
+        { id: 'alerts', label: 'Alerts', icon: '🔔', description: 'Active alerts & risks' },
         { id: 'memory', label: 'Memory', icon: '🧠', description: 'Knowledge vault & memory store' },
         { id: 'experiments', label: 'Experiments', icon: '🧪', description: 'Test experiments & A/B tests' },
         { id: 'strategy', label: 'Strategy', icon: '🎯', description: 'Strategic planning & context' },
@@ -270,11 +268,11 @@ export default function Dashboard() {
 
             {/* ===== NAVIGATION DRAWER (overlay) ===== */}
             {showDrawer && (
-                <div className="fixed inset-0 z-50 sm:hidden">
+                <div className="fixed inset-0 z-50">
                     {/* Backdrop */}
                     <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
                     {/* Drawer panel — slides in from left */}
-                    <nav className="absolute inset-y-0 left-0 w-72 bg-white dark:bg-slate-800 shadow-2xl overflow-y-auto" role="navigation" aria-label="Navigation menu">
+                    <nav className="absolute inset-y-0 left-0 w-72 max-w-[85vw] bg-white dark:bg-slate-800 shadow-2xl overflow-y-auto" role="navigation" aria-label="Navigation menu">
                         {/* Drawer header */}
                         <div className="sticky top-0 z-10 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex items-center justify-between">
                             <span className="font-semibold text-slate-900 dark:text-white text-sm uppercase tracking-wider">Navigate</span>
@@ -316,13 +314,6 @@ export default function Dashboard() {
                                                     {tab.description}
                                                 </span>
                                             </div>
-                                            {/* Live indicator dot */}
-                                            {tab.live && (
-                                                <span className="shrink-0 relative flex h-2 w-2">
-                                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-                                                </span>
-                                            )}
                                         </button>
                                     ))}
                                 </div>
@@ -394,13 +385,6 @@ export default function Dashboard() {
                                         `}>
                                             {tab.description}
                                         </span>
-                                        {/* Live indicator dot */}
-                                        {tab.live && (
-                                            <span className="shrink-0 relative flex h-1.5 w-1.5 ml-0.5">
-                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
-                                            </span>
-                                        )}
                                         {/* Shortcut hint (Ctrl+1..9) */}
                                         {(() => {
                                             const tabIndex = ALL_TABS.findIndex(t => t.id === tab.id) + 1;
