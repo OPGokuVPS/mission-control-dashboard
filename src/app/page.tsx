@@ -25,19 +25,45 @@ import { MarketStatusPanel } from '@/components/MarketStatusPanel';
 
 type Tab = 'overview' | 'tasks' | 'workflows' | 'activity' | 'performance' | 'insights' | 'alerts' | 'memory' | 'experiments' | 'costs' | 'strategy';
 
-const TABS: { id: Tab; label: string; icon: string }[] = [
-    { id: 'overview', label: 'Overview', icon: '📊' },
-    { id: 'tasks', label: 'Tasks', icon: '✅' },
-    { id: 'workflows', label: 'Workflows', icon: '⚙️' },
-    { id: 'activity', label: 'Agents', icon: '🤖' },
-    { id: 'performance', label: 'Performance', icon: '📈' },
-    { id: 'insights', label: 'Impact', icon: '📈' },
-    { id: 'alerts', label: 'Alerts', icon: '🔔' },
-    { id: 'memory', label: 'Memory', icon: '🧠' },
-    { id: 'experiments', label: 'Tests', icon: '🔬' },
-    { id: 'costs', label: 'Costs', icon: '💰' },
-    { id: 'strategy', label: 'Strategy', icon: '🎯' },
+interface TabDef {
+    id: Tab;
+    label: string;
+    icon: string;
+    description: string;
+}
+
+// Nav groups: each sub-array is separated by a visual divider
+const TAB_GROUPS: TabDef[][] = [
+    // ── Operations ────────────────────────────────
+    [
+        { id: 'overview', label: 'Dashboard', icon: '🏠', description: 'Key metrics at a glance' },
+        { id: 'tasks', label: 'Tasks', icon: '✅', description: 'Create, track, and manage tasks' },
+        { id: 'workflows', label: 'Workflows', icon: '⚙️', description: 'Automated workflow pipelines' },
+    ],
+    // ── Agents ────────────────────────────────────
+    [
+        { id: 'activity', label: 'Agents', icon: '🤖', description: 'Agent workload & activity feed' },
+        { id: 'performance', label: 'Metrics', icon: '📉', description: 'Agent performance KPIs & trends' },
+    ],
+    // ── Analytics ─────────────────────────────────
+    [
+        { id: 'insights', label: 'Impact', icon: '📋', description: 'Business impact measurements' },
+        { id: 'costs', label: 'Costs', icon: '💵', description: 'Usage & cost tracking' },
+    ],
+    // ── System ────────────────────────────────────
+    [
+        { id: 'alerts', label: 'Alerts', icon: '🔔', description: 'Active alerts & risks' },
+        { id: 'memory', label: 'Memory', icon: '🧠', description: 'Knowledge vault & memory store' },
+        { id: 'experiments', label: 'Experiments', icon: '🧪', description: 'Test experiments & A/B tests' },
+        { id: 'strategy', label: 'Strategy', icon: '🎯', description: 'Strategic planning & context' },
+    ],
 ];
+
+// Flatten for easier lookups
+const ALL_TABS = TAB_GROUPS.flat();
+function findTab(id: Tab): TabDef | undefined {
+    return ALL_TABS.find(t => t.id === id);
+}
 
 export default function Dashboard() {
     const { user, signOut } = useAuth();
@@ -215,21 +241,43 @@ export default function Dashboard() {
             {/* ===== BODY ===== */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
                 {/* Tabs */}
-                <div className="flex gap-1 sm:gap-2 overflow-x-auto pb-3 mb-4 border-b border-slate-200 dark:border-slate-700 -mx-4 sm:mx-0 px-4 sm:px-0">
-                    {TABS.map(tab => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
-                            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                                activeTab === tab.id
-                                    ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
-                                    : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-                            }`}
-                        >
-                            <span>{tab.icon}</span>
-                            <span className="hidden xs:inline">{tab.label}</span>
-                        </button>
-                    ))}
+                <div className="pb-3 mb-4 border-b border-slate-200 dark:border-slate-700 -mx-4 sm:mx-0 px-4 sm:px-0">
+                    <nav className="flex flex-wrap items-center gap-x-1 gap-y-1" aria-label="Navigation tabs">
+                        {TAB_GROUPS.map((group, gIdx) => (
+                            <>
+                                {gIdx > 0 && (
+                                    <span className="w-px h-6 bg-slate-200 dark:bg-slate-700 self-center mx-1 hidden sm:block" aria-hidden="true" />
+                                )}
+                                {group.map(tab => (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setActiveTab(tab.id)}
+                                        title={tab.description}
+                                        role="tab"
+                                        aria-selected={activeTab === tab.id}
+                                        aria-controls={`panel-${tab.id}`}
+                                        className={`
+                                            group/nav flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[13px] font-medium transition-all duration-150 relative
+                                            ${activeTab === tab.id
+                                                ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm'
+                                                : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200'
+                                            }
+                                        `}
+                                    >
+                                        <span className="text-base leading-none shrink-0">{tab.icon}</span>
+                                        <span className="shrink-0">{tab.label}</span>
+                                        {/* Tooltip on hover for non-active items */}
+                                        <span className={`
+                                            absolute -top-9 left-1/2 -translate-x-1/2 px-2.5 py-1 text-xs text-white bg-slate-800 dark:bg-slate-600 rounded-md shadow-lg opacity-0 pointer-events-none transition-opacity duration-150 z-50 whitespace-nowrap
+                                            ${activeTab === tab.id ? '' : 'group-hover/nav:opacity-100'}
+                                        `}>
+                                            {tab.description}
+                                        </span>
+                                    </button>
+                                ))}
+                            </>
+                        ))}
+                    </nav>
                 </div>
 
                 {/* Active tab content */}
