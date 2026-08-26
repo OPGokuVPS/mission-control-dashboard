@@ -200,9 +200,9 @@ export default function Dashboard() {
                                 🤖 Mission Control
                             </h1>
                             {summaryLoading ? (
-                                <div className="hidden sm:block w-24 h-4 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
+                                <div className="block sm:hidden w-24 h-4 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
                             ) : summary ? (
-                                <div className="hidden sm:flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700/50 px-3 py-1.5 rounded-full whitespace-nowrap">
+                                <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700/50 px-3 py-1.5 rounded-full whitespace-nowrap block sm:hidden">
                                     <span>{summary.tasks} tasks</span>
                                     <span>{summary.workflows} workflows</span>
                                     <span>{summary.alerts} alerts</span>
@@ -402,6 +402,27 @@ export default function Dashboard() {
                     </nav>
                 </div>
 
+                {/* ===== MOBILE TAB STRIP (horizontal scrolling) ===== */}
+                <div className="sm:hidden border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 sticky top-14 z-30">
+                    <nav className="flex overflow-x-auto scrollbar-hide py-2 px-2 gap-1" aria-label="Mobile tabs">
+                        {ALL_TABS.map(tab => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                title={tab.description}
+                                className={`shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+                                    activeTab === tab.id
+                                        ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm'
+                                        : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/50'
+                                }`}
+                            >
+                                <span className="text-sm">{tab.icon}</span>
+                                <span>{tab.label}</span>
+                            </button>
+                        ))}
+                    </nav>
+                </div>
+
                 {/* Active tab content */}
                 <main>
                     {renderTab(activeTab, refreshKey, triggerRefresh)}
@@ -459,7 +480,7 @@ function OverviewTab({ refreshKey }: { refreshKey: number }) {
     return (
         <div className="space-y-4 sm:space-y-6">
             {/* Key Metrics */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-3 sm:gap-4">
                 {[
                     { label: 'Tasks', value: summary?.tasks, icon: '✅', color: 'blue' },
                     { label: 'Active Workflows', value: summary?.workflows, icon: '⚙️', color: 'emerald' },
