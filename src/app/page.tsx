@@ -30,6 +30,8 @@ interface TabDef {
     label: string;
     icon: string;
     description: string;
+    /** True when the tab has live/realtime subscriptions (shows a pulsing dot). */
+    live?: boolean;
 }
 
 // Nav groups: each sub-array is separated by a visual divider
@@ -37,13 +39,13 @@ const TAB_GROUPS: TabDef[][] = [
     // ── Operations ────────────────────────────────
     [
         { id: 'overview', label: 'Dashboard', icon: '🏠', description: 'Key metrics at a glance' },
-        { id: 'tasks', label: 'Tasks', icon: '✅', description: 'Create, track, and manage tasks' },
-        { id: 'workflows', label: 'Workflows', icon: '⚙️', description: 'Automated workflow pipelines' },
+        { id: 'tasks', label: 'Tasks', icon: '✅', description: 'Create, track, and manage tasks', live: true },
+        { id: 'workflows', label: 'Workflows', icon: '⚙️', description: 'Automated workflow pipelines', live: true },
     ],
     // ── Agents ────────────────────────────────────
     [
-        { id: 'activity', label: 'Agents', icon: '🤖', description: 'Agent workload & activity feed' },
-        { id: 'performance', label: 'Metrics', icon: '📉', description: 'Agent performance KPIs & trends' },
+        { id: 'activity', label: 'Agents', icon: '🤖', description: 'Agent workload & activity feed', live: true },
+        { id: 'performance', label: 'Metrics', icon: '📉', description: 'Agent performance KPIs & trends', live: true },
     ],
     // ── Analytics ─────────────────────────────────
     [
@@ -52,7 +54,7 @@ const TAB_GROUPS: TabDef[][] = [
     ],
     // ── System ────────────────────────────────────
     [
-        { id: 'alerts', label: 'Alerts', icon: '🔔', description: 'Active alerts & risks' },
+        { id: 'alerts', label: 'Alerts', icon: '🔔', description: 'Active alerts & risks', live: true },
         { id: 'memory', label: 'Memory', icon: '🧠', description: 'Knowledge vault & memory store' },
         { id: 'experiments', label: 'Experiments', icon: '🧪', description: 'Test experiments & A/B tests' },
         { id: 'strategy', label: 'Strategy', icon: '🎯', description: 'Strategic planning & context' },
@@ -65,13 +67,53 @@ function findTab(id: Tab): TabDef | undefined {
     return ALL_TABS.find(t => t.id === id);
 }
 
+/** Group labels used to title each section in the drawer menu. */
+const GROUP_LABELS = ['Operations', 'Agents', 'Analytics', 'System'];
+
 export default function Dashboard() {
     const { user, signOut } = useAuth();
-    const [activeTab, setActiveTab] = useState<Tab>('overview');
+    
+    // Persistent tab selection — restore last visited tab
+    const [savedTab, setSavedTab] = useState<string | null>(null);
+    const activeTabState = savedTab ? (savedTab as Tab) : 'overview';
+    const [activeTab, setActiveTabInternal] = useState<Tab>(activeTabState);
+    
     const { data: summary, isLoading: summaryLoading } = useDashboardSummary();
-    const [showMobileMenu, setShowMobileMenu] = useState(false);
+    const [showDrawer, setShowDrawer] = useState(false);
     const [showCommand, setShowCommand] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
+
+    // Persist tab selection to localStorage
+    const setActiveTab = useCallback((tab: Tab) => {
+        setActiveTabInternal(tab);
+        try { localStorage.setItem('nav-active-tab', tab); } catch {}
+    }, []);
+    
+    // Load saved tab on mount
+    useEffect(() => {
+        if (!savedTab) {
+            try {
+                const restored = localStorage.getItem('nav-active-tab');
+                if (restored && ALL_TABS.some(t => t.id === restored)) {
+                    setSavedTab(restored);
+                }
+            } catch {}
+        }
+    }, [savedTab]);
+
+    // Close drawer when clicking outside
+    useEffect(() => {
+        if (!showDrawer) return;
+        function handleBackdropClick(e: MouseEvent) {
+            const target = e.target as HTMLElement;
+            // Only close if click is NOT on a nav-button or the drawer trigger itself
+            if (!target.closest('[data-nav-btn]') && !target.closest('[data-nav-trigger]')) {
+                setShowDrawer(false);
+            }
+        }
+        document.addEventListener('click', handleBackdropClick, true);
+        return () => document.removeEventListener('click', handleBackdropClick, true);
+    }, [showDrawer]);
 
     // Keep a ref to the latest `showCommand` value so the keyboard
     // listener (registered once) always reads the current state without
@@ -80,38 +122,44 @@ export default function Dashboard() {
     useEffect(() => {
         showCommandRef.current = showCommand;
     }, [showCommand]);
-
-    const triggerRefresh = useCallback(() => setRefreshKey(k => k + 1), []);
-
-    // Global keyboard shortcuts (capture phase):
-    //   Esc              → close overlay
-    //   Ctrl/Cmd + K     → toggle overlay
-    //   Ctrl/Cmd + /     → toggle overlay
-    // We listen on `document` during the capture phase so the handler
-    // fires *before* any focused element swallows the event — this
-    // means the shortcuts work even when typing inside inputs, selects,
-    // etc.  Only `preventDefault()` for shortcuts we own; OS combos
-    // such as Ctrl+W remain untouched.
+    
+    // Keyboard shortcuts: Ctrl+K/Ctrl+/ to toggle CLI, Escape to close overlays,
+    // Ctrl+1 through Ctrl+9 to jump to tabs 1–9
     useEffect(() => {
         function handleKeyDown(e: KeyboardEvent) {
-            // --- Close with Escape ---
-            if (e.key === 'Escape' && showCommandRef.current) {
+            // --- Close overlays with Escape ---
+            if (e.key === 'Escape') {
+                if (showCommandRef.current) {
+                    e.preventDefault();
+                    setShowCommand(false);
+                    return;
+                }
+            }
+            // --- Toggle CLI with Ctrl/Cmd + K or / ---
+            const mod = e.ctrlKey || e.metaKey;
+            if (mod && (e.key === '/' || e.key === 'k') && !e.shiftKey && !e.altKey && !(e.ctrlKey && e.metaKey)) {
                 e.preventDefault();
-                setShowCommand(false);
+                setShowCommand(prev => !prev);
                 return;
             }
-            // --- Toggle with Ctrl/Cmd + K or / ---
-            const mod = e.ctrlKey || e.metaKey;
-            if (!mod) return;
-            if (e.key !== '/' && e.key !== 'k') return;
-            if (e.shiftKey || e.altKey) return;
-            if (e.ctrlKey && e.metaKey) return;
-            e.preventDefault();
-            setShowCommand(prev => !prev);
+            // --- Numbered tab shortcuts: Ctrl+1 through Ctrl+9 ---
+            if (mod) {
+                const digit = parseInt(e.key);
+                if (digit >= 1 && digit <= 9 && !e.shiftKey && !e.altKey) {
+                    const idx = digit - 1;
+                    if (idx < ALL_TABS.length) {
+                        e.preventDefault();
+                        setActiveTab(ALL_TABS[idx].id);
+                        setShowDrawer(false);
+                    }
+                }
+            }
         }
         document.addEventListener('keydown', handleKeyDown, { capture: true });
         return () => document.removeEventListener('keydown', handleKeyDown, { capture: true });
     }, []);
+
+    const triggerRefresh = useCallback(() => setRefreshKey(k => k + 1), []);
 
     if (!user) {
         return (
@@ -130,10 +178,28 @@ export default function Dashboard() {
             <header className="sticky top-0 z-40 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 shadow-sm">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6">
                     <div className="flex items-center justify-between h-14 sm:h-16">
-                        {/* Left: branding */}
-                        <div className="flex items-center gap-3">
+                        {/* Left: hamburger trigger + branding */}
+                        <div className="flex items-center gap-2 sm:gap-3">
+                            {/* Hamburger menu toggle — opens navigation drawer */}
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setShowDrawer(!showDrawer); }}
+                                className="p-2 -ml-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
+                                aria-label="Open navigation menu"
+                                aria-expanded={showDrawer}
+                                data-nav-trigger
+                            >
+                                {showDrawer ? (
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                ) : (
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                                    </svg>
+                                )}
+                            </button>
                             <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white truncate">
-                                🤖 Mission Control Dashboard
+                                🤖 Mission Control
                             </h1>
                             {summaryLoading ? (
                                 <div className="hidden sm:block w-24 h-4 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
@@ -148,13 +214,6 @@ export default function Dashboard() {
 
                         {/* Right */}
                         <div className="flex items-center gap-2">
-                            {/* mobile menu toggle */}
-                            <button
-                                onClick={() => setShowMobileMenu(!showMobileMenu)}
-                                className="sm:hidden p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300"
-                            >
-                                {showMobileMenu ? '✕' : '☰'}
-                            </button>
                             {/* Command Interface toggle — desktop */}
                             <button
                                 onClick={() => setShowCommand(!showCommand)}
@@ -206,42 +265,103 @@ export default function Dashboard() {
                             </div>
                         </div>
                     </div>
+                </div>
+            </header>
 
-                    {/* mobile menu */}
-                    {showMobileMenu && (
-                        <div className="sm:hidden pb-3 border-t border-slate-200 dark:border-slate-700 pt-2">
-                            <div className="text-sm text-slate-500 mb-2">{user.email}</div>
+            {/* ===== NAVIGATION DRAWER (overlay) ===== */}
+            {showDrawer && (
+                <div className="fixed inset-0 z-50 sm:hidden">
+                    {/* Backdrop */}
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+                    {/* Drawer panel — slides in from left */}
+                    <nav className="absolute inset-y-0 left-0 w-72 bg-white dark:bg-slate-800 shadow-2xl overflow-y-auto" role="navigation" aria-label="Navigation menu">
+                        {/* Drawer header */}
+                        <div className="sticky top-0 z-10 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex items-center justify-between">
+                            <span className="font-semibold text-slate-900 dark:text-white text-sm uppercase tracking-wider">Navigate</span>
                             <button
-                                onClick={() => setShowCommand(!showCommand)}
-                                title="Toggle Command Interface"
-                                aria-label="Toggle Command Interface"
-                                className={`flex items-center gap-2 w-full text-left px-3 py-2 text-sm rounded-lg transition-colors mb-2 ${
+                                onClick={() => setShowDrawer(false)}
+                                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500"
+                                aria-label="Close navigation"
+                            >
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        {/* Groups */}
+                        <div className="p-3 space-y-1">
+                            {TAB_GROUPS.map((group, gIdx) => (
+                                <div key={gIdx} className="mb-3">
+                                    {/* Group label */}
+                                    <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                                        {GROUP_LABELS[gIdx]}
+                                    </p>
+                                    {/* Tabs in group */}
+                                    {group.map((tab) => (
+                                        <button
+                                            key={tab.id}
+                                            onClick={() => { setActiveTab(tab.id); setShowDrawer(false); }}
+                                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all duration-150 relative ${
+                                                activeTab === tab.id
+                                                    ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm'
+                                                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50'
+                                            }`}
+                                            data-nav-btn
+                                        >
+                                            <span className="text-lg shrink-0">{tab.icon}</span>
+                                            <div className="flex-1 min-w-0">
+                                                <span className="text-sm font-medium block leading-tight">{tab.label}</span>
+                                                <span className={`text-[11px] ${activeTab === tab.id ? 'text-slate-300 dark:text-slate-600' : 'text-slate-400 dark:text-slate-500'} block truncate`}>
+                                                    {tab.description}
+                                                </span>
+                                            </div>
+                                            {/* Live indicator dot */}
+                                            {tab.live && (
+                                                <span className="shrink-0 relative flex h-2 w-2">
+                                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                                                </span>
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Drawer footer */}
+                        <div className="sticky bottom-0 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 p-4 space-y-3">
+                            {/* CLI shortcut */}
+                            <button
+                                onClick={() => { setShowCommand(!showCommand); setShowDrawer(false); }}
+                                className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${
                                     showCommand
                                         ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                                        : 'bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                        : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/50'
                                 }`}
                             >
-                                <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l3 3-3 3m5 0h3" />
                                 </svg>
-                                <span>Toggle Command Interface</span>
+                                <span>Toggle CLI</span>
                                 <kbd className="ml-auto text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-600 text-slate-500 dark:text-slate-400">⌘K</kbd>
                             </button>
+                            {/* Sign out */}
                             <button
                                 onClick={() => signOut()}
-                                className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                                className="w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
                             >
                                 Sign Out
                             </button>
                         </div>
-                    )}
+                    </nav>
                 </div>
-            </header>
+            )}
 
             {/* ===== BODY ===== */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
-                {/* Tabs */}
-                <div className="pb-3 mb-4 border-b border-slate-200 dark:border-slate-700 -mx-4 sm:mx-0 px-4 sm:px-0">
+                {/* Desktop tab bar */}
+                <div className="hidden sm:block pb-3 mb-4 border-b border-slate-200 dark:border-slate-700 -mx-4 sm:mx-0 px-4 sm:px-0">
                     <nav className="flex flex-wrap items-center gap-x-1 gap-y-1" aria-label="Navigation tabs">
                         {TAB_GROUPS.map((group, gIdx) => (
                             <>
@@ -256,6 +376,7 @@ export default function Dashboard() {
                                         role="tab"
                                         aria-selected={activeTab === tab.id}
                                         aria-controls={`panel-${tab.id}`}
+                                        data-nav-btn
                                         className={`
                                             group/nav flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[13px] font-medium transition-all duration-150 relative
                                             ${activeTab === tab.id
@@ -273,6 +394,23 @@ export default function Dashboard() {
                                         `}>
                                             {tab.description}
                                         </span>
+                                        {/* Live indicator dot */}
+                                        {tab.live && (
+                                            <span className="shrink-0 relative flex h-1.5 w-1.5 ml-0.5">
+                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                                            </span>
+                                        )}
+                                        {/* Shortcut hint (Ctrl+1..9) */}
+                                        {(() => {
+                                            const tabIndex = ALL_TABS.findIndex(t => t.id === tab.id) + 1;
+                                            if (tabIndex < 10) {
+                                                return (
+                                                    <span className="shrink-0 text-[10px] font-mono opacity-40 ml-0.5">{tabIndex}</span>
+                                                );
+                                            }
+                                            return null;
+                                        })()}
                                     </button>
                                 ))}
                             </>
