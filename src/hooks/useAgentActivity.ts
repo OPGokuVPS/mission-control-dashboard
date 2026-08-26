@@ -1,41 +1,25 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { subscribeToChanges } from '@/lib/realtime';
 import * as QUERY_KEYS from '@/lib/query-keys';
 import type { AgentActivity } from '@/types';
 
 export function useAgentActivity(limit = 50) {
     const qc = useQueryClient();
-    const invalidateRef = useRef(qc.invalidateQueries.bind(qc));
-    useEffect(() => { invalidateRef.current = qc.invalidateQueries.bind(qc); }, [qc]);
 
     // ── Real-time subscription — pushes new activity into cache ──
+    // Uses the shared realtime singleton (one 'agent-activity-changes' channel
+    // for the whole app, no duplicate-channel crash).
     useEffect(() => {
         if (typeof window === 'undefined') return;
-        const channel = supabase.channel('agent-activity-changes');
-
-        // Set up listener BEFORE subscribing
-        channel.on(
-            'postgres_changes',
-            { event: '*', schema: 'public', table: 'agent_activity' },
-            (_payload) => {
-                invalidateRef.current({ queryKey: ['agent_activity'] });
-            },
-        );
-
-        // Subscribe with error handling
-        try {
-            channel.subscribe((status) => {
-                if (status === 'SUBSCRIBED') console.debug('[useAgentActivity] real-time sub OK');
-                if (status === 'CHANNEL_ERROR') console.warn('[useAgentActivity] real-time sub error');
-            });
-        } catch (err) {
-            console.error('[useAgentActivity] realtime subscription failed:', err);
-        }
-
-        return () => { supabase.removeChannel(channel); };
+        const unsubscribe = subscribeToChanges('agent-activity-changes', 'agent_activity', () => {
+            qc.invalidateQueries({ queryKey: ['agent_activity'] });
+        });
+        return () => { unsubscribe(); };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     return useQuery({

@@ -3,8 +3,9 @@
 import { useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { subscribeToChanges } from '@/lib/realtime';
 import * as QUERY_KEYS from '@/lib/query-keys';
-import type { Task, TaskStatus, PriorityLevel, AgentRole, Subtask } from '@/types';
+import type { Task } from '@/types';
 
 // ---------------------------------------------------------------------------
 // Tasks Hook — central source of truth for all task data
@@ -14,50 +15,26 @@ export function useTasks() {
     const qc = useQueryClient();
 
     // ── Real-time subscription — merges Postgres changes into cache ──
-    const invalidateRef = useRef(qc.invalidateQueries.bind(qc));
-    useEffect(() => { invalidateRef.current = qc.invalidateQueries.bind(qc); }, [qc]);
+    // Uses the shared realtime singleton so multiple components calling useTasks()
+    // never create duplicate 'tasks-changes' channels (which crashes Supabase).
     useEffect(() => {
         if (typeof window === 'undefined') return;
 
-        const channel = supabase.channel('tasks-changes');
-        let unsubscribed = false;
-
-        // Set up listener BEFORE subscribing to avoid SDK race condition
-        const onTaskChange = channel.on(
-            'postgres_changes',
-            { event: '*', schema: 'public', table: 'tasks' },
-            (payload) => {
-                const id = (payload.new as Partial<Task>)?.id ??
-                           ((payload.old as Partial<Task>)?.id as number);
-                if (id != null) {
-                    invalidateRef.current({ queryKey: QUERY_KEYS.tasks.all });
-                    invalidateRef.current({ queryKey: QUERY_KEYS.task.byId(id) });
-                } else {
-                    invalidateRef.current({ queryKey: QUERY_KEYS.tasks.all });
-                }
-            },
-        );
-
-        // Subscribe with error handling — failure here used to CRASH the entire app
-        try {
-            channel.subscribe((status) => {
-                if (unsubscribed) return;
-                if (status === 'SUBSCRIBED') {
-                    console.debug('[useTasks] real-time sub OK');
-                } else if (status === 'CHANNEL_ERROR') {
-                    console.warn('[useTasks] real-time sub error');
-                }
-            });
-        } catch (err) {
-            // Subscription failed (e.g., CSP blocking WS) — log but DON'T crash
-            console.error('[useTasks] realtime subscription failed:', err);
-        }
+        const unsubscribe = subscribeToChanges('tasks-changes', 'tasks', (payload) => {
+            const id = (payload.new as Partial<Task>)?.id ??
+                       ((payload.old as Partial<Task>)?.id as number);
+            if (id != null) {
+                qc.invalidateQueries({ queryKey: QUERY_KEYS.tasks.all });
+                qc.invalidateQueries({ queryKey: QUERY_KEYS.task.byId(id) });
+            } else {
+                qc.invalidateQueries({ queryKey: QUERY_KEYS.tasks.all });
+            }
+        });
 
         return () => {
-            unsubscribed = true;
-            channel.unsubscribe();
-            supabase.removeChannel(channel);
+            unsubscribe();
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
     return useQuery({
         queryKey: QUERY_KEYS.tasks.all,

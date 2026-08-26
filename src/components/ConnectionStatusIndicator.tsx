@@ -4,30 +4,35 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 
 // ---------------------------------------------------------------------------
-// ConnectionStatusIndicator — single channel lifecycle managed via ref so
-// we never leak or double-register channels.  Green = live sync is active;
+// ConnectionStatusIndicator — single-channel lifecycle managed via ref so
+// we never leak or double-register channels. Green = live sync is active;
 // red/orange = disconnected (clickable to force reconnect).
-// --------------------------------------------------------------------------/\
+// --------------------------------------------------------------------------/
 
 export function ConnectionStatusIndicator() {
     const [connected, setConnected] = useState(false);
     const [mounted, setMounted] = useState(false);
-    const channelRef = useRef<any>(null); // track the single channel instance
+    const channelRef = useRef<{ channel: any; unsub: (() => void) | null }>({ channel: null, unsub: null });
     const mountedRef = useRef(false);
+    const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
         setMounted(true);
         mountedRef.current = true;
 
-        // Create exactly ONE channel for the entire lifetime of this component
+        // Create exactly ONE channel for the entire lifetime until cleanup
         const hb = supabase.channel('connection-heartbeat');
-        hb.subscribe((status) => {
-            if (!mountedRef.current) return;
-            if (status === 'SUBSCRIBED')      setConnected(true);
-            if (status === 'CHANNEL_ERROR')   setConnected(false);
+        let unsubscribed = false;
+
+        // Listen for connection-level status changes via subscribe callback
+        hb.subscribe((status: string) => {
+            if (unsubscribed || !mountedRef.current) return;
+            if (status === 'SUBSCRIBED') setConnected(true);
+            if (status === 'CHANNEL_ERROR') setConnected(false);
         });
-        channelRef.current = hb;
+
+        channelRef.current = { channel: hb, unsub: () => { unsubscribed = true; } };
 
         // Safety timeout: if we haven't received SUBSCRIBED within 2s, mark offline
         const timeout = setTimeout(() => {
@@ -37,40 +42,46 @@ export function ConnectionStatusIndicator() {
             }
         }, 2000);
 
-        // Periodic reconnect every 60 s — remove & recreate the SINGLE channel
-        const interval = setInterval(() => {
-            if (!mountedRef.current) return;
+        // Periodic reconnect every 60 s
+        intervalRef.current = setInterval(() => {
+            if (!mountedRef.current || unsubscribed) return;
+            // Remove old channel and create fresh one (singleton handles name reuse)
             supabase.removeChannel(hb);
             const fresh = supabase.channel('connection-heartbeat');
-            fresh.subscribe((status) => {
-                if (!mountedRef.current) return;
-                if (status === 'SUBSCRIBED')      setConnected(true);
-                if (status === 'CHANNEL_ERROR')   setConnected(false);
+            fresh.subscribe((status: string) => {
+                if (unsubscribed || !mountedRef.current) return;
+                if (status === 'SUBSCRIBED') setConnected(true);
+                if (status === 'CHANNEL_ERROR') setConnected(false);
             });
-            channelRef.current = fresh;
+            channelRef.current = { channel: fresh, unsub: null };
         }, 60_000);
 
         return () => {
             mountedRef.current = false;
-            clearInterval(interval);
+            unsubscribed = true;
+            if (intervalRef.current) {
+                clearInterval(intervalRef.current);
+                intervalRef.current = null;
+            }
             clearTimeout(timeout);
-            if (channelRef.current) supabase.removeChannel(channelRef.current);
-            channelRef.current = null;
+            if (channelRef.current.channel) supabase.removeChannel(channelRef.current.channel);
+            channelRef.current = { channel: null, unsub: null };
         };
     }, []);
 
     /** Force-reconnect */
     const handleReconnect = () => {
         setConnected(false);
-        // Tear down all existing channels, recreate heartbeat
-        const channels = supabase.getChannels();
-        channels.forEach(ch => supabase.removeChannel(ch));
+        // Tear down existing channel, force recreate
+        if (channelRef.current.channel) {
+            supabase.removeChannel(channelRef.current.channel);
+        }
         const fresh = supabase.channel('connection-heartbeat');
-        fresh.subscribe((status) => {
+        fresh.subscribe((status: string) => {
             if (status === 'SUBSCRIBED') setConnected(true);
             if (status === 'CHANNEL_ERROR') setConnected(false);
         });
-        channelRef.current = fresh;
+        channelRef.current = { channel: fresh, unsub: null };
     };
 
     if (!mounted) {
@@ -100,3 +111,4 @@ export function ConnectionStatusIndicator() {
         </div>
     );
 }
+
